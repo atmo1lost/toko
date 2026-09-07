@@ -1,0 +1,16 @@
+{
+  "name": "toko",
+  "version": "0.1.0",
+  "description": "cobalt-inspired media downloader with batch downloads and pluggable extractors",
+  "main": "server/index.js",
+  "type": "commonjs",
+  "scripts": {
+    "start": "node server/index.js"
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "nanoid": "^3.3.7",
+    "p-limit": "^3.1.0",
+    "youtubei.js": "^18.0.0"
+  }
+}
