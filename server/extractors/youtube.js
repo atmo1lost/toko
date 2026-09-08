@@ -13,14 +13,18 @@ function match(url) {
 }
 
 async function extract(url) {
-  const id = url.match(VIDEO_ID_RE)[1];
+  const match = url.match(VIDEO_ID_RE);
+  if (!match) {
+    throw new Error("Invalid YouTube URL");
+  }
+  const id = match[1];
   const yt = await getClient();
   const info = await yt.getInfo(id);
 
   const rawFormats = info.streaming_data.formats.concat(info.streaming_data.adaptive_formats);
 
   const candidates = rawFormats.filter(
-    (f) => (f.has_video || f.has_audio) && (f.url || f.cipher || f.signature_cipher)
+    (f) => f.url || f.cipher || f.signature_cipher
   );
 
   const resolved = await Promise.all(
@@ -36,7 +40,7 @@ async function extract(url) {
           type: f.has_video ? "video" : "audio",
         };
       } catch {
-        return null; // this specific format failed to decipher, skip it
+        return null; 
       }
     })
   );

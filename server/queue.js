@@ -19,7 +19,6 @@ function createBatch(urls) {
 
   jobs.set(batchId, { id: batchId, items, createdAt: Date.now() });
 
-  // fire off processing! dont block the response
   items.forEach((item) => {
     limit(() => processItem(batchId, item.id));
   });
