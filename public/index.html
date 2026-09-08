@@ -1,75 +1,1336 @@
 <!doctype html>
-<html>
+<html lang="en">
 <head>
 <meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
 <title>toko</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  body { font-family: system-ui, sans-serif; max-width: 640px; margin: 60px auto; padding: 0 20px; background: #0f0f10; color: #eee; }
-  h1 { font-weight: 600; }
-  textarea { width: 100%; height: 120px; background: #1a1a1c; color: #eee; border: 1px solid #333; border-radius: 8px; padding: 10px; font-family: monospace; }
-  button { margin-top: 10px; padding: 10px 18px; border-radius: 8px; border: none; background: #4f7cff; color: white; font-weight: 600; cursor: pointer; }
-  button:hover { background: #3d69f0; }
-  .item { border: 1px solid #2a2a2c; border-radius: 8px; padding: 12px; margin-top: 10px; }
-  .status { font-size: 12px; text-transform: uppercase; letter-spacing: 0.05em; opacity: 0.7; }
-  .status.done { color: #6ee88a; }
-  .status.error { color: #ff6b6b; }
-  a.dl { color: #4f7cff; }
+  /* theme tokens live on [data-theme] on <body>, set by applyTheme() in the script below */
+
+  body[data-theme="dark"] {
+    --bg: #121212;
+    --bg-elev: #1b1b1b;
+    --bg-sunken: #0a0a0a;
+    --bg-hover: #242424;
+    --border: #2e2e2e;
+    --border-soft: #212121;
+    --text: #eaeaea;
+    --text-dim: #8f8f8f;
+    --accent: #ededed;
+    --accent-soft: #333333;
+    --accent-text: #121212;
+    --success: #5fd1a0;
+    --error: #e8615f;
+    --queued: #8b90f5;
+    --glow-1: rgba(255,255,255,0.055);
+    --glow-2: rgba(255,255,255,0.035);
+    --shadow: 0 16px 32px rgba(0,0,0,0.45);
+  }
+
+  body[data-theme="light"] {
+    --bg: #ededeb;
+    --bg-elev: #ffffff;
+    --bg-sunken: #e1e1de;
+    --bg-hover: #f2f2f0;
+    --border: #d5d5d1;
+    --border-soft: #e2e2df;
+    --text: #1c1c1c;
+    --text-dim: #6c6c6c;
+    --accent: #1c1c1c;
+    --accent-soft: #e2e2df;
+    --accent-text: #f5f5f3;
+    --success: #227a54;
+    --error: #b7362f;
+    --queued: #4b3fc0;
+    --glow-1: rgba(0,0,0,0.045);
+    --glow-2: rgba(0,0,0,0.03);
+    --shadow: 0 16px 32px rgba(20,20,20,0.12);
+  }
+
+  body[data-theme="amoled"] {
+    --bg: #000000;
+    --bg-elev: #060606;
+    --bg-sunken: #000000;
+    --bg-hover: #0e0e0e;
+    --border: #161616;
+    --border-soft: #0e0e0e;
+    --text: #dedede;
+    --text-dim: #656565;
+    --accent: #ffffff;
+    --accent-soft: #161616;
+    --accent-text: #000000;
+    --success: #4fb98b;
+    --error: #d15650;
+    --queued: #7a7fe0;
+    --glow-1: rgba(255,255,255,0.02);
+    --glow-2: rgba(255,255,255,0.014);
+    --shadow: 0 20px 40px rgba(0,0,0,0.8);
+  }
+
+  body[data-theme="gruvbox"] {
+    --bg: #282828;
+    --bg-elev: #343130;
+    --bg-sunken: #1d2021;
+    --bg-hover: #3c3836;
+    --border: #504945;
+    --border-soft: #423d3a;
+    --text: #ebdbb2;
+    --text-dim: #a89984;
+    --accent: #e3a56f;
+    --accent-soft: #4a3a2a;
+    --accent-text: #282828;
+    --success: #b8bb26;
+    --error: #f2594b;
+    --queued: #d3869b;
+    --glow-1: rgba(224,164,111,0.18);
+    --glow-2: rgba(250,189,47,0.12);
+    --shadow: 0 16px 32px rgba(0,0,0,0.45);
+  }
+
+  * { box-sizing: border-box; }
+
+  html, body {
+    height: 100%;
+    margin: 0;
+  }
+
+  body {
+    font-family: "Inter", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+    background:
+      radial-gradient(circle at 8% 6%, var(--glow-1), transparent 42%),
+      radial-gradient(circle at 92% 88%, var(--glow-2), transparent 46%),
+      var(--bg);
+    background-attachment: fixed;
+    color: var(--text);
+    display: flex;
+    align-items: flex-start;
+    min-height: 100vh;
+  }
+
+  ::selection { background: var(--accent); color: var(--accent-text); }
+
+  code, .mono {
+    font-family: "JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, Consolas, monospace;
+  }
+
+  a { color: inherit; }
+
+  button {
+    font-family: inherit;
+    cursor: pointer;
+  }
+
+  input, select, textarea, button {
+    font-family: inherit;
+    font-size: inherit;
+    color: var(--text);
+  }
+
+  /* ---------- sidebar ---------- */
+
+  .sidebar {
+    width: 220px;
+    flex-shrink: 0;
+    background: color-mix(in srgb, var(--bg-elev) 62%, transparent);
+    backdrop-filter: blur(28px) saturate(160%);
+    -webkit-backdrop-filter: blur(28px) saturate(160%);
+    border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+    border-radius: 18px;
+    display: flex;
+    flex-direction: column;
+    padding: 20px 14px;
+    position: sticky;
+    top: 16px;
+    margin: 16px 0 16px 16px;
+    height: calc(100vh - 32px);
+    box-shadow: var(--shadow);
+  }
+
+  .brand {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 14px;
+    font-weight: 600;
+    letter-spacing: 0.01em;
+    padding: 2px 8px 18px;
+    display: flex;
+    align-items: baseline;
+    gap: 2px;
+  }
+
+  .brand .dot {
+    color: var(--accent);
+  }
+
+  .brand .ver {
+    font-size: 10px;
+    color: var(--text-dim);
+    font-weight: 400;
+    margin-left: 6px;
+    letter-spacing: 0;
+  }
+
+  /* queue widget */
+
+  .queue-widget {
+    position: relative;
+    margin-bottom: 18px;
+  }
+
+  .queue-pill {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    font-size: 12.5px;
+    color: var(--text-dim);
+    background: var(--bg);
+    transition: border-color 0.15s ease;
+  }
+
+  .queue-widget:hover .queue-pill,
+  .queue-widget:focus-within .queue-pill {
+    border-color: color-mix(in srgb, var(--accent) 45%, var(--border));
+  }
+
+  .queue-pill .ring {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    flex-shrink: 0;
+    transition: background 0.15s ease, box-shadow 0.15s ease;
+  }
+
+  .queue-pill.active .ring {
+    background: var(--accent);
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 25%, transparent);
+  }
+
+  .queue-count {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    color: var(--text);
+    margin-left: auto;
+  }
+
+  .queue-drop {
+    position: absolute;
+    left: 0;
+    top: calc(100% + 6px);
+    width: 300px;
+    max-height: 320px;
+    overflow-y: auto;
+    background: color-mix(in srgb, var(--bg-sunken) 78%, transparent);
+    backdrop-filter: blur(20px) saturate(160%);
+    -webkit-backdrop-filter: blur(20px) saturate(160%);
+    border: 1px solid color-mix(in srgb, var(--text) 9%, transparent);
+    border-radius: 12px;
+    padding: 8px;
+    z-index: 40;
+    display: none;
+    box-shadow: var(--shadow);
+  }
+
+  .queue-widget:hover .queue-drop,
+  .queue-widget:focus-within .queue-drop {
+    display: block;
+  }
+
+  .queue-drop-empty {
+    padding: 14px 8px;
+    color: var(--text-dim);
+    font-size: 12.5px;
+  }
+
+  .queue-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 6px;
+    border-radius: 6px;
+    font-size: 12px;
+  }
+
+  .queue-row:hover { background: var(--bg-hover); }
+
+  .queue-row .qs {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+
+  .queue-row .qurl {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    color: var(--text-dim);
+    flex: 1;
+  }
+
+  .qs.queued { background: var(--queued); }
+  .qs.processing { background: var(--accent); }
+  .qs.done { background: var(--success); }
+  .qs.error { background: var(--error); }
+
+  nav.main-nav {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+  }
+
+  .nav-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 9px 10px 9px 12px;
+    border-radius: 6px;
+    font-size: 13.5px;
+    color: var(--text-dim);
+    background: transparent;
+    border: none;
+    border-left: 2px solid transparent;
+    text-align: left;
+    width: 100%;
+    transition: background 0.12s ease, color 0.12s ease, border-color 0.12s ease;
+  }
+
+  .nav-item:hover { background: var(--bg-hover); color: var(--text); }
+
+  .nav-item.active {
+    background: color-mix(in srgb, var(--accent) 10%, var(--bg-hover));
+    color: var(--text);
+    border-left: 2px solid var(--accent);
+    font-weight: 500;
+  }
+
+  .nav-item.active .ic { stroke: var(--accent); }
+
+  .nav-item .ic {
+    width: 15px;
+    height: 15px;
+    flex-shrink: 0;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.6;
+    transition: stroke 0.12s ease;
+  }
+
+  .sidebar-spacer { flex: 1; }
+
+  .sidebar-bottom {
+    border-top: 1px solid var(--border);
+    padding-top: 10px;
+  }
+
+  /* ---------- main ---------- */
+
+  main {
+    flex: 1;
+    min-width: 0;
+    padding: 46px 52px;
+    max-width: 760px;
+  }
+
+  .view { display: none; }
+  .view.active { display: block; }
+
+  h1 {
+    font-size: 23px;
+    font-weight: 600;
+    letter-spacing: -0.015em;
+    margin: 0 0 6px;
+    padding-left: 14px;
+    position: relative;
+  }
+
+  h1::before {
+    content: "";
+    position: absolute;
+    left: 0;
+    top: 4px;
+    bottom: 4px;
+    width: 3px;
+    border-radius: 2px;
+    background: var(--accent);
+  }
+
+  .lede {
+    color: var(--text-dim);
+    font-size: 13.5px;
+    line-height: 1.55;
+    margin: 0 0 28px;
+    padding-left: 14px;
+    max-width: 56ch;
+  }
+
+  textarea#urls {
+    width: 100%;
+    height: 108px;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 13px 15px;
+    color: var(--text);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 13px;
+    line-height: 1.6;
+    resize: vertical;
+    transition: border-color 0.12s ease;
+  }
+
+  textarea#urls::placeholder { color: var(--text-dim); }
+
+  textarea#urls:focus, input:focus, select:focus {
+    outline: none;
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
+  }
+
+  .row { display: flex; align-items: center; gap: 10px; margin-top: 12px; }
+
+  .btn-primary {
+    background: var(--accent);
+    color: var(--accent-text);
+    border: none;
+    border-radius: 7px;
+    padding: 10px 18px;
+    font-size: 13.5px;
+    font-weight: 600;
+    box-shadow: 0 1px 0 rgba(0,0,0,0.08), 0 6px 16px color-mix(in srgb, var(--accent) 30%, transparent);
+    transition: transform 0.1s ease, filter 0.1s ease, box-shadow 0.1s ease;
+  }
+
+  .btn-primary:hover { filter: brightness(1.07); transform: translateY(-1px); }
+  .btn-primary:active { transform: translateY(0); }
+  .btn-primary:disabled { opacity: 0.5; cursor: default; transform: none; box-shadow: none; }
+
+  .hint {
+    font-size: 12px;
+    color: var(--text-dim);
+  }
+
+  #results { margin-top: 22px; display: flex; flex-direction: column; gap: 8px; }
+
+  .item {
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 13px 15px;
+    background: color-mix(in srgb, var(--bg-elev) 75%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    transition: border-color 0.12s ease;
+  }
+
+  .item:hover { border-color: var(--border); }
+
+  .item-top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 10px;
+  }
+
+  .item-url {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+    color: var(--text-dim);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .status-tag {
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    font-weight: 500;
+    border-radius: 5px;
+    padding: 3px 8px;
+    flex-shrink: 0;
+    border: 1px solid transparent;
+  }
+
+  .status-tag.queued { color: var(--queued); background: color-mix(in srgb, var(--queued) 14%, transparent); }
+  .status-tag.processing { color: var(--accent); background: color-mix(in srgb, var(--accent) 16%, transparent); }
+  .status-tag.done { color: var(--success); background: color-mix(in srgb, var(--success) 14%, transparent); }
+  .status-tag.error { color: var(--error); background: color-mix(in srgb, var(--error) 14%, transparent); }
+
+  .item-title { margin-top: 10px; font-size: 13.5px; font-weight: 500; }
+
+  .formats { margin-top: 9px; display: flex; flex-wrap: wrap; gap: 6px; }
+
+  .fmt {
+    font-size: 11.5px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    border: 1px solid var(--border);
+    border-radius: 5px;
+    padding: 4px 8px;
+    color: var(--text-dim);
+    text-decoration: none;
+    background: var(--bg);
+    transition: border-color 0.12s ease, color 0.12s ease;
+  }
+
+  .fmt:hover { border-color: var(--accent); color: var(--accent); }
+
+  .item-error { margin-top: 8px; font-size: 12.5px; color: var(--error); }
+
+  .debug-pre {
+    margin-top: 8px;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 10px;
+    font-size: 11px;
+    color: var(--text-dim);
+    overflow-x: auto;
+    white-space: pre-wrap;
+  }
+
+  /* settings */
+
+  .field-group {
+    border-bottom: 1px solid var(--border-soft);
+    padding: 22px 0;
+  }
+
+  .field-group:first-child { padding-top: 0; }
+  .field-group:last-child { border-bottom: none; }
+
+  .field-label {
+    font-size: 13.5px;
+    font-weight: 600;
+    margin-bottom: 3px;
+  }
+
+  .field-desc {
+    font-size: 12.5px;
+    color: var(--text-dim);
+    margin-bottom: 12px;
+    max-width: 52ch;
+    line-height: 1.5;
+  }
+
+  .segmented {
+    display: inline-flex;
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    overflow: hidden;
+    background: var(--bg-sunken);
+  }
+
+  .segmented button {
+    background: transparent;
+    border: none;
+    color: var(--text-dim);
+    padding: 7px 15px;
+    font-size: 12.5px;
+    font-weight: 500;
+    border-right: 1px solid var(--border);
+    transition: background 0.12s ease, color 0.12s ease;
+  }
+
+  .segmented button:last-child { border-right: none; }
+  .segmented button:hover { color: var(--text); }
+  .segmented button.sel { background: var(--accent); color: var(--accent-text); }
+  .segmented button.sel:hover { color: var(--accent-text); }
+
+  select.field-select {
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    min-width: 220px;
+  }
+
+  .toggle-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+
+  .switch {
+    position: relative;
+    width: 38px;
+    height: 21px;
+    flex-shrink: 0;
+  }
+
+  .switch input { opacity: 0; width: 0; height: 0; }
+
+  .switch .track {
+    position: absolute;
+    inset: 0;
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 20px;
+    transition: background 0.15s, border-color 0.15s;
+  }
+
+  .switch .knob {
+    position: absolute;
+    top: 2px; left: 2px;
+    width: 15px; height: 15px;
+    border-radius: 50%;
+    background: var(--text-dim);
+    box-shadow: 0 1px 2px rgba(0,0,0,0.3);
+    transition: transform 0.15s, background 0.15s;
+  }
+
+  .switch input:checked + .track {
+    background: color-mix(in srgb, var(--accent) 30%, var(--bg-sunken));
+    border-color: color-mix(in srgb, var(--accent) 55%, var(--border));
+  }
+  .switch input:checked ~ .knob { transform: translateX(17px); background: var(--accent); }
+
+  .instance-list { display: flex; flex-direction: column; gap: 6px; margin-bottom: 10px; }
+
+  .instance-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 8px 11px;
+    background: var(--bg-sunken);
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+  }
+
+  .instance-row span { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+  .instance-row button {
+    background: none;
+    border: none;
+    color: var(--text-dim);
+    font-size: 16px;
+    line-height: 1;
+    transition: color 0.12s ease;
+  }
+
+  .instance-row button:hover { color: var(--error); }
+
+  .inline-add {
+    display: flex;
+    gap: 8px;
+  }
+
+  input.text-input {
+    background: var(--bg-sunken);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 11px;
+    flex: 1;
+    transition: border-color 0.12s ease;
+  }
+
+  input.text-input:focus { border-color: color-mix(in srgb, var(--accent) 55%, var(--border)); }
+
+  .btn-ghost {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 7px;
+    padding: 9px 14px;
+    font-size: 12.5px;
+    font-weight: 500;
+    color: var(--text);
+    transition: border-color 0.12s ease, color 0.12s ease, background 0.12s ease;
+  }
+
+  .btn-ghost:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
+
+  .saved-flash {
+    font-size: 12px;
+    color: var(--success);
+    opacity: 0;
+    transition: opacity 0.2s;
+    margin-left: 10px;
+  }
+
+  .saved-flash.show { opacity: 1; }
+
+  /* changelog */
+
+  main.wide { max-width: 980px; }
+
+  .clog-stage {
+    position: relative;
+    height: 65vh;
+    min-height: 340px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+
+  .clog-frame {
+    width: 100%;
+    height: 100%;
+    border-radius: 14px;
+    overflow: hidden;
+    border: 1px solid var(--border-soft);
+    background: var(--bg-sunken);
+    box-shadow: var(--shadow);
+  }
+
+  .clog-image {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  .clog-nav {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 42px;
+    height: 42px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: color-mix(in srgb, var(--bg-elev) 70%, transparent);
+    backdrop-filter: blur(16px) saturate(150%);
+    -webkit-backdrop-filter: blur(16px) saturate(150%);
+    border: 1px solid color-mix(in srgb, var(--text) 10%, transparent);
+    color: var(--text);
+    z-index: 5;
+    transition: border-color 0.12s ease, color 0.12s ease, transform 0.12s ease;
+  }
+
+  .clog-nav svg {
+    width: 18px;
+    height: 18px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 2;
+  }
+
+  .clog-nav.prev { left: 16px; }
+  .clog-nav.next { right: 16px; }
+
+  .clog-nav:hover { border-color: var(--accent); color: var(--accent); }
+  .clog-nav:active { transform: translateY(-50%) scale(0.94); }
+
+  .clog-nav:disabled {
+    opacity: 0.3;
+    pointer-events: none;
+  }
+
+  .clog-dots {
+    display: flex;
+    justify-content: center;
+    gap: 6px;
+    margin-top: 16px;
+  }
+
+  .clog-dots .dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--border);
+    transition: background 0.12s ease, transform 0.12s ease;
+  }
+
+  .clog-dots .dot.sel { background: var(--accent); transform: scale(1.25); }
+
+  .clog-caption {
+    text-align: center;
+    margin-top: 22px;
+  }
+
+  .clog-ver {
+    display: inline-block;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+    font-size: 12px;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    border-radius: 5px;
+    padding: 3px 9px;
+  }
+
+  .clog-date {
+    font-size: 11.5px;
+    color: var(--text-dim);
+    margin-top: 8px;
+    font-family: "JetBrains Mono", ui-monospace, monospace;
+  }
+
+  .clog-text {
+    font-size: 14px;
+    line-height: 1.6;
+    margin: 8px auto 0;
+    max-width: 52ch;
+  }
+
+  /* about / support prose */
+
+  .prose p { font-size: 13.5px; line-height: 1.65; color: var(--text); max-width: 58ch; }
+  .prose h2 { font-size: 13.5px; font-weight: 600; margin: 28px 0 10px; }
+  .prose ul { margin: 0; padding-left: 18px; }
+  .prose li { font-size: 13px; line-height: 1.7; color: var(--text-dim); }
+  .prose li code { color: var(--text); }
+  .prose a.link { color: var(--accent); text-decoration: none; }
+  .prose a.link:hover { text-decoration: underline; }
+
+  .support-card {
+    border: 1px solid var(--border-soft);
+    border-radius: 10px;
+    padding: 17px 19px;
+    background: color-mix(in srgb, var(--bg-elev) 75%, transparent);
+    backdrop-filter: blur(14px) saturate(140%);
+    -webkit-backdrop-filter: blur(14px) saturate(140%);
+    margin-top: 14px;
+    transition: border-color 0.12s ease;
+  }
+
+  .support-card:hover { border-color: var(--border); }
+
+  .support-card .field-label { margin-bottom: 5px; }
+
+  @media (max-width: 720px) {
+    body { flex-direction: column; }
+    .sidebar {
+      position: relative;
+      width: auto;
+      height: auto;
+      margin: 12px;
+      flex-direction: row;
+      overflow-x: auto;
+      align-items: center;
+      top: 0;
+    }
+    .sidebar-spacer { display: none; }
+    nav.main-nav { flex-direction: row; }
+    .sidebar-bottom { border-top: none; border-left: 1px solid var(--border); padding-top: 0; padding-left: 10px; margin-left: 4px; }
+    main { padding: 28px 20px; max-width: none; }
+  }
 </style>
 </head>
-<body>
-  <h1>toko</h1>
-  <p>paste one or more urls, one per line. batch download, no waiting for one to finish before the next starts.</p>
-  <textarea id="urls" placeholder="https://youtube.com/watch?v=...
+<body data-theme="dark">
+
+<aside class="sidebar">
+  <div class="brand">to<span class="dot">·</span>ko</div>
+
+  <div class="queue-widget" tabindex="0">
+    <div class="queue-pill" id="queuePill">
+      <span class="ring"></span>
+      <span>queue</span>
+      <span class="queue-count" id="queueCount">0</span>
+    </div>
+    <div class="queue-drop" id="queueDrop">
+      <div class="queue-drop-empty" id="queueDropEmpty">nothing queued yet</div>
+      <div id="queueDropList"></div>
+    </div>
+  </div>
+
+  <nav class="main-nav">
+    <button class="nav-item active" data-view="home">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M4 11.5 12 4l8 7.5"/><path d="M6 10v9h12v-9"/></svg>
+      home
+    </button>
+    <button class="nav-item" data-view="about">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5"/><path d="M12 7.6v.1"/></svg>
+      about
+    </button>
+    <button class="nav-item" data-view="settings">
+      <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="3"/><path d="M19.4 13.5c.1-.5.1-1 0-1.5l1.6-1.3-1.5-2.6-1.9.6a7.6 7.6 0 0 0-1.3-.8l-.3-2H10l-.3 2c-.5.2-.9.5-1.3.8l-1.9-.6-1.5 2.6L6.6 12c-.1.5-.1 1 0 1.5L5 14.8l1.5 2.6 1.9-.6c.4.3.8.6 1.3.8l.3 2h4l.3-2c.5-.2.9-.5 1.3-.8l1.9.6 1.5-2.6z"/></svg>
+      settings
+    </button>
+    <button class="nav-item" data-view="changelog">
+      <svg class="ic" viewBox="0 0 24 24"><path d="M5 4h14v16l-3-2-2 2-2-2-2 2-2-2-3 2z"/><path d="M8 9h8"/><path d="M8 13h8"/></svg>
+      changelog
+    </button>
+  </nav>
+
+  <div class="sidebar-spacer"></div>
+
+  <div class="sidebar-bottom">
+    <nav class="main-nav">
+      <button class="nav-item" data-view="support">
+        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.8-2.6 1.8-2.6 3.6"/><path d="M12 17v.1"/></svg>
+        support
+      </button>
+    </nav>
+  </div>
+</aside>
+
+<main>
+
+  <!-- home -->
+  <section class="view active" id="view-home">
+    <h1>batch download</h1>
+    <p class="lede">paste one or more urls, one per line. everything runs concurrently, no waiting for one to finish before the next starts.</p>
+
+    <textarea id="urls" placeholder="https://youtube.com/watch?v=...
 https://youtube.com/watch?v=..."></textarea>
-  <br />
-  <button id="go">download all</button>
-  <div id="results"></div>
+    <div class="row">
+      <button class="btn-primary" id="go">download all</button>
+      <span class="hint" id="settingsHint"></span>
+    </div>
+
+    <div id="results"></div>
+  </section>
+
+  <!-- about -->
+  <section class="view" id="view-about">
+    <h1>about toko</h1>
+    <p class="lede">a cobalt-inspired downloader, built around batch downloads from day one instead of one url at a time.</p>
+    <div class="prose">
+      <h2>how it's put together</h2>
+      <ul>
+        <li>each source lives in its own extractor file exporting <code>match(url)</code> and <code>extract(url)</code></li>
+        <li>a queue manager runs up to four extractions concurrently and keeps an in-memory job store</li>
+        <li>the api exposes <code>POST /api/batch</code> to submit urls and <code>GET /api/batch/:id</code> to poll status</li>
+      </ul>
+      <h2>known gaps in this beta</h2>
+      <ul>
+        <li>only youtube + tiktok is implemented right now, other sources are stubbed by the registry pattern</li>
+        <li>the job store is in-memory, a restart wipes the queue</li>
+      </ul>
+    </div>
+  </section>
+
+  <!-- settings -->
+  <section class="view" id="view-settings">
+    <h1>settings</h1>
+    <p class="lede">stored locally in this browser.<span class="saved-flash" id="savedFlash">saved</span></p>
+
+    <div class="field-group">
+      <div class="field-label">theme</div>
+      <div class="field-desc">switch the interface's color scheme.</div>
+      <div class="segmented" id="themeSeg">
+        <button data-theme="dark">dark</button>
+        <button data-theme="light">light</button>
+        <button data-theme="amoled">amoled</button>
+        <button data-theme="gruvbox">gruvbox</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">quality forcer</div>
+      <div class="field-desc">always request this quality when a source offers a choice, instead of picking the best available.</div>
+      <select class="field-select" id="qualitySelect">
+        <option value="auto">auto (best available)</option>
+        <option value="2160">2160p</option>
+        <option value="1080">1080p</option>
+        <option value="720">720p</option>
+        <option value="480">480p 🫩</option>
+        <option value="audio">audio only</option>
+      </select>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">metadata</div>
+      <div class="field-desc">embed title, source url and date into downloaded files where the format supports it.</div>
+      <div class="toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="metadataToggle" />
+          <span class="track"></span>
+          <span class="knob"></span>
+        </label>
+        <span class="hint" id="metadataState">off</span>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">instances</div>
+      <div class="field-desc">additional toko instances to fall back to if this ones extractors fail.</div>
+      <div class="instance-list" id="instanceList"></div>
+      <div class="inline-add">
+        <input class="text-input" id="instanceInput" placeholder="https://toko.pages.dev" />
+        <button class="btn-ghost" id="instanceAdd">add</button>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">local processing</div>
+      <div class="field-desc">do format conversion in this browser tab when possible, instead of sending the file back through the server.</div>
+      <div class="toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="localToggle" />
+          <span class="track"></span>
+          <span class="knob"></span>
+        </label>
+        <span class="hint" id="localState">off</span>
+      </div>
+    </div>
+
+    <div class="field-group">
+      <div class="field-label">enable debug for nerds</div>
+      <div class="field-desc">show raw job payloads under each result and log queue events to the console.</div>
+      <div class="toggle-row">
+        <label class="switch">
+          <input type="checkbox" id="debugToggle" />
+          <span class="track"></span>
+          <span class="knob"></span>
+        </label>
+        <span class="hint" id="debugState">off</span>
+      </div>
+    </div>
+  </section>
+
+  <!-- changelog -->
+  <section class="view" id="view-changelog">
+    <h1>changelog</h1>
+    <p class="lede">what the changes are n shi</p>
+
+    <div class="clog-stage">
+      <button class="clog-nav prev" id="clogPrev" aria-label="previous release">
+        <svg viewBox="0 0 24 24"><path d="M15 5 8 12l7 7"/></svg>
+      </button>
+      <div class="clog-frame">
+        <img class="clog-image" id="clogImage" src="" alt="" />
+      </div>
+      <button class="clog-nav next" id="clogNext" aria-label="next release">
+        <svg viewBox="0 0 24 24"><path d="M9 5l7 7-7 7"/></svg>
+      </button>
+    </div>
+
+    <div class="clog-dots" id="clogDots"></div>
+
+    <div class="clog-caption">
+      <div class="clog-ver" id="clogVer"></div>
+      <div class="clog-date" id="clogDate"></div>
+      <div class="clog-text" id="clogText"></div>
+    </div>
+  </section>
+
+  <!-- support -->
+  <section class="view" id="view-support">
+    <h1>support</h1>
+    <p class="lede">donate to us!!</p>
+    <div class="support-card">
+      <div class="field-label">currently...</div>
+      <div class="field-desc">we dont have any donation system set up. if we get more popular we will 100% do so.</div>
+    </div>
+    <div class="support-card">
+      <div class="field-label">issue on the website?</div>
+      <div class="field-desc">open an issue on the <a href="https://github.com/atmo1lost/toko">repo</a>, or reach out through where ever you found the website on.</div>
+    </div>
+  </section>
+
+</main>
 
 <script>
-const go = document.getElementById("go");
-const results = document.getElementById("results");
+(() => {
+  const DEFAULT_SETTINGS = {
+    theme: "dark",
+    quality: "auto",
+    metadata: false,
+    localProcessing: false,
+    debug: false,
+    instances: [],
+  };
 
-go.addEventListener("click", async () => {
-  const urls = document.getElementById("urls").value
-    .split("\n").map(s => s.trim()).filter(Boolean);
-  if (!urls.length) return;
+  const state = {
+    settings: loadSettings(),
+    queueItems: [],   // { id, url, status, result, error }
+    activeBatches: new Set(),
+  };
 
-  results.innerHTML = "";
-  const res = await fetch("/api/batch", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ urls })
-  });
-  const { batchId, error } = await res.json();
-  if (error) { results.textContent = error; return; }
-
-  poll(batchId);
-});
-
-function poll(batchId) {
-  const interval = setInterval(async () => {
-    const res = await fetch(`/api/batch/${batchId}`);
-    const batch = await res.json();
-    render(batch);
-    if (batch.items.every(i => i.status === "done" || i.status === "error")) {
-      clearInterval(interval);
+  function loadSettings() {
+    try {
+      const raw = localStorage.getItem("toko:settings");
+      if (!raw) return { ...DEFAULT_SETTINGS };
+      return { ...DEFAULT_SETTINGS, ...JSON.parse(raw) };
+    } catch {
+      return { ...DEFAULT_SETTINGS };
     }
-  }, 800);
-}
+  }
 
-function render(batch) {
-  results.innerHTML = batch.items.map(item => `
-    <div class="item">
-      <div class="status ${item.status}">${item.status}</div>
-      <div>${item.url}</div>
-      ${item.result ? `
-        <div>${item.result.title}</div>
-        ${item.result.formats.slice(0, 5).map(f => `<a class="dl" href="${f.url}" target="_blank">${f.label}</a><br/>`).join("")}
-      ` : ""}
-      ${item.error ? `<div style="color:#ff6b6b">${item.error}</div>` : ""}
-    </div>
-  `).join("");
-}
+  function saveSettings() {
+    localStorage.setItem("toko:settings", JSON.stringify(state.settings));
+    flashSaved();
+  }
+
+  function flashSaved() {
+    const el = document.getElementById("savedFlash");
+    el.classList.add("show");
+    clearTimeout(flashSaved._t);
+    flashSaved._t = setTimeout(() => el.classList.remove("show"), 1000);
+  }
+
+  // edit this array by hand to publish a new release note.
+  // each entry needs a version, a date, an image, and a short line of text.
+  const CHANGELOG = [
+    {
+      ver: "v0.1.0",
+      date: "2026-01-14",
+      image: "imgs/1.png",
+      text: "first release!!!! | tiktok: buggy | youtube: works! but yah "
+    }
+  ];
+
+  // ---------- nav ----------
+
+  function showView(name) {
+    document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
+    document.getElementById("view-" + name).classList.add("active");
+    document.querySelectorAll(".nav-item").forEach(b => {
+      b.classList.toggle("active", b.dataset.view === name);
+    });
+    document.querySelector("main").classList.toggle("wide", name === "changelog");
+  }
+
+  document.querySelectorAll(".nav-item").forEach(btn => {
+    btn.addEventListener("click", () => showView(btn.dataset.view));
+  });
+
+  // ---------- theme ----------
+
+  function applyTheme(theme) {
+    document.body.setAttribute("data-theme", theme);
+    document.querySelectorAll("#themeSeg button").forEach(b => {
+      b.classList.toggle("sel", b.dataset.theme === theme);
+    });
+  }
+
+  document.getElementById("themeSeg").addEventListener("click", (e) => {
+    const btn = e.target.closest("button");
+    if (!btn) return;
+    state.settings.theme = btn.dataset.theme;
+    applyTheme(state.settings.theme);
+    saveSettings();
+  });
+
+  // ---------- settings fields ----------
+
+  function bindToggle(id, key, labelId) {
+    const el = document.getElementById(id);
+    const label = document.getElementById(labelId);
+    el.checked = !!state.settings[key];
+    label.textContent = el.checked ? "on" : "off";
+    el.addEventListener("change", () => {
+      state.settings[key] = el.checked;
+      label.textContent = el.checked ? "on" : "off";
+      saveSettings();
+      renderSettingsHint();
+    });
+  }
+
+  bindToggle("metadataToggle", "metadata", "metadataState");
+  bindToggle("localToggle", "localProcessing", "localState");
+  bindToggle("debugToggle", "debug", "debugState");
+
+  const qualitySelect = document.getElementById("qualitySelect");
+  qualitySelect.value = state.settings.quality;
+  qualitySelect.addEventListener("change", () => {
+    state.settings.quality = qualitySelect.value;
+    saveSettings();
+    renderSettingsHint();
+  });
+
+  function renderInstances() {
+    const list = document.getElementById("instanceList");
+    if (!state.settings.instances.length) {
+      list.innerHTML = "";
+      return;
+    }
+    list.innerHTML = state.settings.instances.map((inst, i) => `
+      <div class="instance-row">
+        <span>${escapeHtml(inst)}</span>
+        <button data-i="${i}" title="remove">&times;</button>
+      </div>
+    `).join("");
+    list.querySelectorAll("button").forEach(b => {
+      b.addEventListener("click", () => {
+        state.settings.instances.splice(Number(b.dataset.i), 1);
+        renderInstances();
+        saveSettings();
+      });
+    });
+  }
+
+  document.getElementById("instanceAdd").addEventListener("click", () => {
+    const input = document.getElementById("instanceInput");
+    const val = input.value.trim();
+    if (!val) return;
+    state.settings.instances.push(val);
+    input.value = "";
+    renderInstances();
+    saveSettings();
+  });
+
+  function renderSettingsHint() {
+    const bits = [];
+    if (state.settings.quality !== "auto") bits.push(state.settings.quality === "audio" ? "audio only" : state.settings.quality + "p forced");
+    if (state.settings.metadata) bits.push("metadata on");
+    if (state.settings.localProcessing) bits.push("local processing on");
+    document.getElementById("settingsHint").textContent = bits.join(" · ");
+  }
+
+  // ---------- changelog ----------
+
+  let clogIndex = 0;
+
+  function renderChangelog() {
+    if (!CHANGELOG.length) return;
+    const e = CHANGELOG[clogIndex];
+
+    document.getElementById("clogImage").src = e.image;
+    document.getElementById("clogImage").alt = `${e.ver} preview`;
+    document.getElementById("clogVer").textContent = e.ver;
+    document.getElementById("clogDate").textContent = e.date;
+    document.getElementById("clogText").textContent = e.text;
+
+    document.getElementById("clogPrev").disabled = clogIndex === 0;
+    document.getElementById("clogNext").disabled = clogIndex === CHANGELOG.length - 1;
+
+    document.getElementById("clogDots").innerHTML = CHANGELOG.map((_, i) =>
+      `<span class="dot${i === clogIndex ? " sel" : ""}"></span>`
+    ).join("");
+  }
+
+  document.getElementById("clogPrev").addEventListener("click", () => {
+    if (clogIndex > 0) { clogIndex--; renderChangelog(); }
+  });
+
+  document.getElementById("clogNext").addEventListener("click", () => {
+    if (clogIndex < CHANGELOG.length - 1) { clogIndex++; renderChangelog(); }
+  });
+
+  // ---------- queue / download ----------
+
+  function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({
+      "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;"
+    }[c]));
+  }
+
+  function renderQueueWidget() {
+    const active = state.queueItems.filter(i => i.status === "queued" || i.status === "processing");
+    document.getElementById("queueCount").textContent = state.queueItems.length;
+    document.getElementById("queuePill").classList.toggle("active", active.length > 0);
+
+    const dropList = document.getElementById("queueDropList");
+    const dropEmpty = document.getElementById("queueDropEmpty");
+    if (!state.queueItems.length) {
+      dropEmpty.style.display = "block";
+      dropList.innerHTML = "";
+      return;
+    }
+    dropEmpty.style.display = "none";
+    dropList.innerHTML = state.queueItems.slice().reverse().map(item => `
+      <div class="queue-row">
+        <span class="qs ${item.status}"></span>
+        <span class="qurl">${escapeHtml(item.url)}</span>
+      </div>
+    `).join("");
+  }
+
+  function renderResults() {
+    const results = document.getElementById("results");
+    results.innerHTML = state.queueItems.slice().reverse().map(item => `
+      <div class="item">
+        <div class="item-top">
+          <div class="item-url">${escapeHtml(item.url)}</div>
+          <div class="status-tag ${item.status}">${item.status}</div>
+        </div>
+        ${item.result ? `
+          <div class="item-title">${escapeHtml(item.result.title || "")}</div>
+          <div class="formats">
+            ${(item.result.formats || []).slice(0, 6).map(f => `<a class="fmt" href="${f.url}" target="_blank" rel="noopener">${escapeHtml(f.label)}</a>`).join("")}
+          </div>
+        ` : ""}
+        ${item.error ? `<div class="item-error">${escapeHtml(item.error)}</div>` : ""}
+        ${state.settings.debug ? `<pre class="debug-pre">${escapeHtml(JSON.stringify(item, null, 2))}</pre>` : ""}
+      </div>
+    `).join("");
+  }
+
+  function renderAll() {
+    renderQueueWidget();
+    renderResults();
+  }
+
+  async function submitBatch() {
+    const raw = document.getElementById("urls").value;
+    const urls = raw.split("\n").map(s => s.trim()).filter(Boolean);
+    if (!urls.length) return;
+
+    const goBtn = document.getElementById("go");
+    goBtn.disabled = true;
+
+    const body = { urls, quality: state.settings.quality, metadata: state.settings.metadata };
+    if (state.settings.debug) console.log("[toko] submitting batch", body);
+
+    try {
+      const res = await fetch("/api/batch", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body)
+      });
+      const data = await res.json();
+      if (data.error) {
+        goBtn.disabled = false;
+        return;
+      }
+      pollBatch(data.batchId);
+    } catch (err) {
+      if (state.settings.debug) console.error("[toko] submit failed", err);
+    } finally {
+      goBtn.disabled = false;
+    }
+  }
+
+  function pollBatch(batchId) {
+    state.activeBatches.add(batchId);
+    const interval = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/batch/${batchId}`);
+        const batch = await res.json();
+        if (batch.error) { clearInterval(interval); state.activeBatches.delete(batchId); return; }
+
+        // Update existing items and remove completed ones from queueItems
+        batch.items.forEach(fresh => {
+          const idx = state.queueItems.findIndex(i => i.id === fresh.id);
+          if (idx === -1) {
+            // Only add if not already in queue
+            state.queueItems.push(fresh);
+          } else {
+            // Update existing item
+            state.queueItems[idx] = fresh;
+            
+            // Remove items that are done or error from queueItems to let queue shrink
+            if (fresh.status === "done" || fresh.status === "error") {
+              state.queueItems.splice(idx, 1);
+            }
+          }
+        });
+        
+        // Also remove any orphaned items that might be in queueItems but not in batch
+        state.queueItems = state.queueItems.filter(item => 
+          batch.items.some(batchItem => batchItem.id === item.id)
+        );
+        renderAll();
+
+        if (batch.items.every(i => i.status === "done" || i.status === "error")) {
+          clearInterval(interval);
+          state.activeBatches.delete(batchId);
+          if (state.settings.debug) console.log("[toko] batch finished", batchId);
+        }
+      } catch (err) {
+        if (state.settings.debug) console.error("[toko] poll failed", err);
+      }
+    }, 800);
+  }
+
+  document.getElementById("go").addEventListener("click", submitBatch);
+
+  // ---------- init ----------
+
+  applyTheme(state.settings.theme);
+  renderInstances();
+  renderSettingsHint();
+  renderChangelog();
+  renderAll();
+})();
 </script>
 </body>
 </html>
