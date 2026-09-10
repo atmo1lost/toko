@@ -1,10 +1,25 @@
 const { spawn } = require("child_process");
+const fs = require("fs");
+const path = require("path");
 const { PassThrough } = require("stream");
+const ytdlpPackage = require("youtube-dl-exec");
+const bundledFfmpeg = require("ffmpeg-static");
 
-const executable = process.env.TOKO_YTDLP_PATH || "yt-dlp";
+const ytdlpDirectory = path.dirname(ytdlpPackage.constants.YOUTUBE_DL_PATH);
+const bundledYtdlpCandidates = [
+  process.platform === "linux" ? path.join(ytdlpDirectory, "yt-dlp_linux") : null,
+  ytdlpPackage.constants.YOUTUBE_DL_PATH,
+].filter(Boolean);
+const bundledYtdlp = bundledYtdlpCandidates.find((candidate) => fs.existsSync(candidate));
+const executable = process.env.TOKO_YTDLP_PATH || bundledYtdlp || "yt-dlp";
+const ffmpegPath = process.env.TOKO_FFMPEG_PATH || bundledFfmpeg;
 
 function commonArgs({ youtube = false, tiktok = false } = {}) {
   const args = ["--no-playlist", "--no-warnings", "--no-check-formats", "--force-ipv4"];
+
+  if (ffmpegPath) {
+    args.push("--ffmpeg-location", ffmpegPath);
+  }
 
   if (tiktok && process.env.TOKO_YTDLP_IMPERSONATE !== "false") {
     args.push("--impersonate", process.env.TOKO_YTDLP_IMPERSONATE || "chrome");
