@@ -10,19 +10,18 @@ npm start
 ```
 
 youtube and tiktok extraction/downloads use the current `yt-dlp` extractor
-instead of forwarding short-lived CDN URLs. Install a current yt-dlp release,
-`ffmpeg`, and a JavaScript runtime before starting toko:
+instead of forwarding short-lived CDN URLs. `npm install` installs yt-dlp and
+a static ffmpeg binary for the app, including the Linux binaries used by
+Vercel:
 
 ```bash
-brew install ffmpeg
-python3 -m pip install --upgrade "yt-dlp[default,curl-cffi]"
+npm install
 ```
 
-if your Python installation is externally managed, install the same extra in
-your virtual environment or with pipx instead. Verify the setup with
-`yt-dlp --version` and `yt-dlp --list-impersonate-targets`.
+you can override the bundled executables with `TOKO_YTDLP_PATH` and
+`TOKO_FFMPEG_PATH`.
 
-for YouTubes current javascript challenges, node is used automatically. If a
+for current YouTube javascript challenges, node is used automatically. if a
 site requires browser verification, run toko with fresh cookies from the same
 browser and network session:
 
@@ -32,13 +31,13 @@ TOKO_YTDLP_BROWSER=firefox npm start
 
 use the browser that can open the post successfully (`chrome`, `firefox`, or
 another supported browser), and keep the browser and toko on the same network.
-If TikTok still reports that the IP is blocked, set
+if TikTok still reports that the IP is blocked, set
 `TOKO_YTDLP_PROXY` to a proxy whose IP can access TikTok; cookies from a
 different network will not fix a signed media request.
 
-Other supported settings are `TOKO_YTDLP_PATH`, `TOKO_YTDLP_JS_RUNTIME`,
-`TOKO_YTDLP_COOKIES`, `TOKO_YTDLP_PROXY`, and `TOKO_YTDLP_IMPERSONATE`.
-TikTok uses Chrome impersonation by default; this requires yt-dlp's optional
+other supported settings are `TOKO_YTDLP_JS_RUNTIME`, `TOKO_YTDLP_COOKIES`,
+`TOKO_YTDLP_PROXY`, and `TOKO_YTDLP_IMPERSONATE`.
+TikTok uses Chrome impersonation by default; this requires the optional
 `curl-cffi` dependency.
 
 open http://localhost:3000
@@ -62,7 +61,7 @@ async function extract(url) {
 module.exports = { match, extract };
 ```
 
-2. require it and add to the array in `server/extractors/index.js`. that's it, the queue and frontend don't need to change.
+2. require it and add to the array in `server/extractors/index.js`. the queue and frontend do not need to change.
 
 ## known gaps in this beta
 
