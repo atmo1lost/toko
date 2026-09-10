@@ -8,9 +8,10 @@
 // extract(url) -> { title, formats: [{ label, url, type: 'video'|'audio'|'image' }] }
 
 const youtube = require("./youtube");
-const tiktok = require("./tiktok")
+const tiktok = require("./tiktok");
+const insta = require("./insta");
 
-const extractors = [youtube, tiktok];
+const extractors = [youtube, tiktok, insta];
 
 function findExtractor(url) {
   return extractors.find((e) => e.match(url));

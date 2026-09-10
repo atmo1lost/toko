@@ -1,14 +1,25 @@
 <!doctype html>
 <html lang="en">
 <head>
-<meta charset="utf-8" />
-<meta name="viewport" content="width=device-width, initial-scale=1" />
-<title>toko</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>toko! - download videos & batch downloader</title>
+<meta name="description" content="toko lets you download all your favourite videos from multiple sources! you can also batch download easily and quickly.">
+<meta name="robots" content="index, follow">
+<meta property="og:type" content="website">
+<meta property="og:title" content="toko - download videos & batch downloader">
+<meta property="og:description" content="toko lets you download all your favourite videos from multiple sources! you can also batch download easily and quickly.">
+<meta property="og:image" content="https://toko-downloader.vercel.app/public/img/internals/logo1.png">
+<meta property="og:url" content="https://toko-downloader.vercel.app">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="toko - download videos & batch downloader">
+<meta name="twitter:description" content="toko lets you download all your favourite videos from multiple sources! you can also batch download.">
+<meta name="twitter:image" content="https://toko-downloader.vercel.app/public/img/internals/logo1.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="shortcut icon" href="imgs/internals/favicon.png" type="image/x-icon">
 <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
 <style>
-  /* theme tokens live on [data-theme] on <body>, set by applyTheme() in the script below */
 
   body[data-theme="dark"] {
     --bg: #121212;
@@ -366,6 +377,28 @@
     margin: 0 0 28px;
     padding-left: 14px;
     max-width: 56ch;
+  }
+
+  .home-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 18px;
+  }
+
+  .home-head-text { flex: 1; min-width: 0; }
+
+  .splash-img {
+    border-radius: 12px;
+    height: 80px;
+    width: auto;
+    flex-shrink: 0;
+    margin-bottom: 24px;
+    image-rendering: pixelated;
+    filter: drop-shadow(0 6px 14px rgba(0,0,0,0.35));
+    transform: rotate(-4deg);
+    user-select: none;
+    pointer-events: none;
   }
 
   textarea#urls {
@@ -809,6 +842,7 @@
     nav.main-nav { flex-direction: row; }
     .sidebar-bottom { border-top: none; border-left: 1px solid var(--border); padding-top: 0; padding-left: 10px; margin-left: 4px; }
     main { padding: 28px 20px; max-width: none; }
+    .splash-img { display: none; }
   }
 </style>
 </head>
@@ -852,10 +886,28 @@
 
   <div class="sidebar-bottom">
     <nav class="main-nav">
+
       <button class="nav-item" data-view="support">
-        <svg class="ic" viewBox="0 0 24 24"><circle cx="12" cy="12" r="8.5"/><path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.8-2.6 1.8-2.6 3.6"/><path d="M12 17v.1"/></svg>
+        <svg class="ic" viewBox="0 0 24 24">
+          <circle cx="12" cy="12" r="8.5"/>
+          <path d="M9.2 9.2a2.8 2.8 0 0 1 5.4 1c0 1.8-2.6 1.8-2.6 3.6"/>
+          <path d="M12 17v.1"/>
+        </svg>
         support
       </button>
+
+      <a
+        class="nav-item"
+        href="https://discord.gg/YOURINVITE"
+        target="_blank"
+        rel="noopener noreferrer"
+      >
+      <svg class="ic" viewBox="0 0 24 24" fill="currentColor">
+        <path d="M20.317 4.37a19.8 19.8 0 0 0-4.885-1.515.074.074 0 0 0-.079.037c-.21.375-.444.864-.608 1.25a18.3 18.3 0 0 0-5.487 0 13 13 0 0 0-.617-1.25.08.08 0 0 0-.079-.037A19.7 19.7 0 0 0 3.677 4.37a.1.1 0 0 0-.032.027C.533 9.046-.32 13.58.099 18.057a.08.08 0 0 0 .031.057 19.9 19.9 0 0 0 5.993 3.03.08.08 0 0 0 .084-.028 14 14 0 0 0 1.226-1.994.076.076 0 0 0-.041-.106 13 13 0 0 1-1.872-.892.077.077 0 0 1-.008-.128 10 10 0 0 0 .372-.292.07.07 0 0 1 .077-.01c3.928 1.793 8.18 1.793 12.062 0a.07.07 0 0 1 .078.01q.181.149.373.292a.077.077 0 0 1-.006.127 12.3 12.3 0 0 1-1.873.892.077.077 0 0 0-.041.107c.36.698.772 1.362 1.225 1.993a.08.08 0 0 0 .084.028 19.8 19.8 0 0 0 6.002-3.03a.08.08 0 0 0 .032-.054c.5-5.177-.838-9.674-3.549-13.66a.06.06 0 0 0-.031-.03M8.02 15.33c-1.182 0-2.157-1.085-2.157-2.419c0-1.333.956-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.956 2.418-2.157 2.418m7.975 0c-1.183 0-2.157-1.085-2.157-2.419c0-1.333.955-2.419 2.157-2.419c1.21 0 2.176 1.096 2.157 2.42c0 1.333-.946 2.418-2.157 2.418"/>
+      </svg>
+        discord
+      </a>
+
     </nav>
   </div>
 </aside>
@@ -864,14 +916,22 @@
 
   <!-- home -->
   <section class="view active" id="view-home">
-    <h1>batch download</h1>
-    <p class="lede">paste one or more urls, one per line. everything runs concurrently, no waiting for one to finish before the next starts.</p>
+    <div class="home-head">
+      <div class="home-head-text">
+        <h1>download yo shi</h1>
+        <p class="lede">u can do batch downloads too 👀</p>
+      </div>
+      <img class="splash-img" id="splashImg" src="" alt="" />
+    </div>
 
-    <textarea id="urls" placeholder="https://youtube.com/watch?v=...
-https://youtube.com/watch?v=..."></textarea>
+    <textarea style="resize: none;" id="urls" placeholder="we got insta, tiktok and youtube supported"></textarea>
     <div class="row">
-      <button class="btn-primary" id="go">download all</button>
+      <button class="btn-primary" id="go">download em</button>
       <span class="hint" id="settingsHint"></span>
+      <!-- privacy policy will be made when im ready. -->
+      <!-- <br>
+      <span class="hint">by clicking this button, you accept to the <a href="">privacy policy.</a></span> -->
+
     </div>
 
     <div id="results"></div>
@@ -880,9 +940,10 @@ https://youtube.com/watch?v=..."></textarea>
   <!-- about -->
   <section class="view" id="view-about">
     <h1>about toko</h1>
-    <p class="lede">a cobalt-inspired downloader, built around batch downloads from day one instead of one url at a time.</p>
+    <p class="lede">a <a href="https://cobalt.tools?ref=toko:3">cobalt.tools</a> inspired downloader</p>
     <div class="prose">
-      <h2>how it's put together</h2>
+      <h2>how its put together</h2>
+      <span class="dim">this is for nerds so baibai</span>
       <ul>
         <li>each source lives in its own extractor file exporting <code>match(url)</code> and <code>extract(url)</code></li>
         <li>a queue manager runs up to four extractions concurrently and keeps an in-memory job store</li>
@@ -890,7 +951,7 @@ https://youtube.com/watch?v=..."></textarea>
       </ul>
       <h2>known gaps in this beta</h2>
       <ul>
-        <li>only youtube + tiktok is implemented right now, other sources are stubbed by the registry pattern</li>
+        <li>only youtube, tiktok & insta is implemented right now, other sources are stubbed by the registry pattern</li>
         <li>the job store is in-memory, a restart wipes the queue</li>
       </ul>
     </div>
@@ -899,16 +960,16 @@ https://youtube.com/watch?v=..."></textarea>
   <!-- settings -->
   <section class="view" id="view-settings">
     <h1>settings</h1>
-    <p class="lede">stored locally in this browser.<span class="saved-flash" id="savedFlash">saved</span></p>
+    <p class="lede">stored locally in ur browser<span class="saved-flash" id="savedFlash">saved</span></p>
 
     <div class="field-group">
       <div class="field-label">theme</div>
-      <div class="field-desc">switch the interface's color scheme.</div>
+      <div class="field-desc">switch switch tokos theme.</div>
       <div class="segmented" id="themeSeg">
-        <button data-theme="dark">dark</button>
-        <button data-theme="light">light</button>
-        <button data-theme="amoled">amoled</button>
-        <button data-theme="gruvbox">gruvbox</button>
+        <button data-theme="dark">dark <- default</button>
+        <button data-theme="light">light <- ow my eyes</button>
+        <button data-theme="amoled">amoled <- cool</button>
+        <button data-theme="gruvbox">gruvbox <- oranges</button>
       </div>
     </div>
 
@@ -943,7 +1004,7 @@ https://youtube.com/watch?v=..."></textarea>
       <div class="field-desc">additional toko instances to fall back to if this ones extractors fail.</div>
       <div class="instance-list" id="instanceList"></div>
       <div class="inline-add">
-        <input class="text-input" id="instanceInput" placeholder="https://toko.pages.dev" />
+        <input class="text-input" id="instanceInput" placeholder="https://toko.vercel.app" />
         <button class="btn-ghost" id="instanceAdd">add</button>
       </div>
     </div>
@@ -962,7 +1023,7 @@ https://youtube.com/watch?v=..."></textarea>
     </div>
 
     <div class="field-group">
-      <div class="field-label">enable debug for nerds</div>
+      <div class="field-label">enable debug for NERDS</div>
       <div class="field-desc">show raw job payloads under each result and log queue events to the console.</div>
       <div class="toggle-row">
         <label class="switch">
@@ -1056,16 +1117,37 @@ https://youtube.com/watch?v=..."></textarea>
     flashSaved._t = setTimeout(() => el.classList.remove("show"), 1000);
   }
 
-  // edit this array by hand to publish a new release note.
-  // each entry needs a version, a date, an image, and a short line of text.
+  // it gotta be reverse order but its chill #fairs👌
   const CHANGELOG = [
     {
+      ver: "v0.2.0",
+      date: "2026-09-09 🤯",
+      image: "imgs/changelog/2.gif",
+      text: "second update!!1!!1!1! | added insta scraping andddddd splashes at start of screen and favicon blah blah blah blah blha"
+    },
+    {
       ver: "v0.1.0",
-      date: "2026-01-14",
-      image: "imgs/1.png",
+      date: "2026-09-07 or 08 i forgot",
+      image: "imgs/changelog/1.png",
       text: "first release!!!! | tiktok: buggy | youtube: works! but yah "
-    }
+    }, 
   ];
+
+  // splashes, one is picked at random per pageload
+  const SPLASHES = [
+    "imgs/splash/luckystarsplash1.png",
+    "imgs/splash/luckystarsplash2.png",
+    "imgs/splash/luckystarsplash3.png",
+    "imgs/splash/luckystarsplash4.jpg",
+  ];
+
+  function pickSplash() {
+    const img = document.getElementById("splashImg");
+    if (!SPLASHES.length) return;
+    const pick = SPLASHES[Math.floor(Math.random() * SPLASHES.length)];
+    img.src = pick;
+    img.alt = "splash";
+  }
 
   // ---------- nav ----------
 
@@ -1224,6 +1306,54 @@ https://youtube.com/watch?v=..."></textarea>
     `).join("");
   }
 
+  function extFor(type) {
+    return type === "video" ? "mp4" : type === "audio" ? "m4a" : "jpg";
+  }
+
+  function downloadHref(item, f) {
+    const name = `${(item.result.title || "download").slice(0, 60)} - ${f.label}.${extFor(f.type)}`;
+    const params = new URLSearchParams({
+      filename: name,
+      ...(f.source === "youtube"
+        ? { source: "youtube", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: f.type }
+        : f.source === "tiktok"
+        ? { source: "tiktok", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: f.type }
+        : { url: f.url }),
+    });
+    return `/api/download?${params}`;
+  }
+
+  function downloadFormat(event) {
+    const link = event.target.closest("a[data-download]");
+    if (!link) return;
+    event.preventDefault();
+    if (link.dataset.busy) return;
+
+    link.dataset.busy = "1";
+    const originalText = link.textContent;
+    link.textContent = "downloading...";
+
+    // Let the browser own the response. Fetching and converting to a Blob
+    // keeps the browser's download manager unaware until every byte is done.
+    // An iframe preserves this page while Content-Disposition starts a native
+    // browser download whose progress is visible in the download list.
+    const frame = document.createElement("iframe");
+    frame.hidden = true;
+    frame.src = link.href;
+    document.body.appendChild(frame);
+
+    // Extraction can take several seconds before the first media byte is
+    // available. Keep the request alive long enough for slow sources and let
+    // the browser's download manager own the response after it starts.
+    setTimeout(() => frame.remove(), 60 * 60 * 1000);
+    setTimeout(() => {
+      link.textContent = originalText;
+      link.dataset.busy = "";
+    }, 1500);
+  }
+
+  document.getElementById("results").addEventListener("click", downloadFormat);
+
   function renderResults() {
     const results = document.getElementById("results");
     results.innerHTML = state.queueItems.slice().reverse().map(item => `
@@ -1235,7 +1365,7 @@ https://youtube.com/watch?v=..."></textarea>
         ${item.result ? `
           <div class="item-title">${escapeHtml(item.result.title || "")}</div>
           <div class="formats">
-            ${(item.result.formats || []).slice(0, 6).map(f => `<a class="fmt" href="${f.url}" target="_blank" rel="noopener">${escapeHtml(f.label)}</a>`).join("")}
+            ${(item.result.formats || []).slice(0, 6).map(f => `<a class="fmt" data-download data-direct-url="${escapeHtml(f.url || "")}" href="${downloadHref(item, f)}" download>${escapeHtml(f.label)}</a>`).join("")}
           </div>
         ` : ""}
         ${item.error ? `<div class="item-error">${escapeHtml(item.error)}</div>` : ""}
@@ -1287,24 +1417,16 @@ https://youtube.com/watch?v=..."></textarea>
         const batch = await res.json();
         if (batch.error) { clearInterval(interval); state.activeBatches.delete(batchId); return; }
 
-        // Update existing items and remove completed ones from queueItems
         batch.items.forEach(fresh => {
           const idx = state.queueItems.findIndex(i => i.id === fresh.id);
+
           if (idx === -1) {
-            // Only add if not already in queue
             state.queueItems.push(fresh);
           } else {
-            // Update existing item
             state.queueItems[idx] = fresh;
-            
-            // Remove items that are done or error from queueItems to let queue shrink
-            if (fresh.status === "done" || fresh.status === "error") {
-              state.queueItems.splice(idx, 1);
-            }
           }
         });
         
-        // Also remove any orphaned items that might be in queueItems but not in batch
         state.queueItems = state.queueItems.filter(item => 
           batch.items.some(batchItem => batchItem.id === item.id)
         );
@@ -1329,8 +1451,9 @@ https://youtube.com/watch?v=..."></textarea>
   renderInstances();
   renderSettingsHint();
   renderChangelog();
+  pickSplash();
   renderAll();
-  // cloudflare deployment trigger dont mind this-----0X`CSkjhsdkjadhdajdhasj
+
 })();
 </script>
 </body>

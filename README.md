@@ -9,6 +9,38 @@ npm install
 npm start
 ```
 
+youtube and tiktok extraction/downloads use the current `yt-dlp` extractor
+instead of forwarding short-lived CDN URLs. Install a current yt-dlp release,
+`ffmpeg`, and a JavaScript runtime before starting toko:
+
+```bash
+brew install ffmpeg
+python3 -m pip install --upgrade "yt-dlp[default,curl-cffi]"
+```
+
+if your Python installation is externally managed, install the same extra in
+your virtual environment or with pipx instead. Verify the setup with
+`yt-dlp --version` and `yt-dlp --list-impersonate-targets`.
+
+for YouTubes current javascript challenges, node is used automatically. If a
+site requires browser verification, run toko with fresh cookies from the same
+browser and network session:
+
+```bash
+TOKO_YTDLP_BROWSER=firefox npm start
+```
+
+use the browser that can open the post successfully (`chrome`, `firefox`, or
+another supported browser), and keep the browser and toko on the same network.
+If TikTok still reports that the IP is blocked, set
+`TOKO_YTDLP_PROXY` to a proxy whose IP can access TikTok; cookies from a
+different network will not fix a signed media request.
+
+Other supported settings are `TOKO_YTDLP_PATH`, `TOKO_YTDLP_JS_RUNTIME`,
+`TOKO_YTDLP_COOKIES`, `TOKO_YTDLP_PROXY`, and `TOKO_YTDLP_IMPERSONATE`.
+TikTok uses Chrome impersonation by default; this requires yt-dlp's optional
+`curl-cffi` dependency.
+
 open http://localhost:3000
 
 ## structure
@@ -34,8 +66,5 @@ module.exports = { match, extract };
 
 ## known gaps in this beta
 
-- only youtube implemented, everything else is stubbed by the registry pattern above
+- only youtube, tiktok and instagram implemented, everything else is stubbed by the registry pattern above
 - in-memory job store, restart wipes queue state — swap for redis/sqlite before this goes anywhere real
-- no rate limiting on the api itself, someone could spam `/api/batch`
-- no auth, don't expose this publicly as-is
-- `@distube/ytdl-core` breaks periodically when youtube changes internals, same problem cobalt has, budget time for maintenance

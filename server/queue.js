@@ -4,6 +4,12 @@ const { findExtractor } = require("./extractors");
 
 const jobs = new Map();
 
+function normalizeUrl(value) {
+  if (typeof value !== "string") return value;
+  const markdown = value.match(/^\[[^\]]+\]\((https?:\/\/[^)]+)\)$/i);
+  return (markdown ? markdown[1] : value).trim();
+}
+
 // cap concurrent extractions
 const limit = pLimit(4);
 
@@ -11,7 +17,7 @@ function createBatch(urls) {
   const batchId = nanoid();
   const items = urls.map((url) => ({
     id: nanoid(),
-    url,
+    url: normalizeUrl(url),
     status: "queued", // queued -> processing -> done or error
     result: null,
     error: null,
@@ -37,7 +43,7 @@ async function processItem(batchId, itemId) {
   const extractor = findExtractor(item.url);
   if (!extractor) {
     item.status = "error";
-    item.error = "no extractor for this url yet";
+    item.error = "idfk what this is ";
     return;
   }
 

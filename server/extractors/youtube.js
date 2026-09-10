@@ -1,57 +1,41 @@
-const { Innertube } = require("youtubei.js");
+const ytdlp = require("./ytdlp");
 
-const VIDEO_ID_RE = /(?:v=|youtu\.be\/|shorts\/)([a-zA-Z0-9_-]{11})/;
+const VIDEO_ID_RE = /^[a-zA-Z0-9_-]{11}$/;
 
-let ytClient = null;
-async function getClient() {
-  if (!ytClient) ytClient = await Innertube.create();
-  return ytClient;
+function getVideoId(value) {
+  if (typeof value !== "string") return null;
+  let parsed;
+  try {
+    parsed = new URL(value);
+  } catch {
+    return null;
+  }
+
+  const host = parsed.hostname.toLowerCase().replace(/^www\./, "");
+  let id = null;
+  if (host === "youtu.be") {
+    id = parsed.pathname.split("/").filter(Boolean)[0];
+  } else if (host === "youtube.com" || host === "m.youtube.com") {
+    const parts = parsed.pathname.split("/").filter(Boolean);
+    if (parsed.pathname === "/watch") id = parsed.searchParams.get("v");
+    else if (["shorts", "embed", "live"].includes(parts[0])) id = parts[1];
+  }
+  return id && VIDEO_ID_RE.test(id) ? id : null;
 }
 
 function match(url) {
-  return VIDEO_ID_RE.test(url);
+  return !!getVideoId(url);
 }
 
 async function extract(url) {
-  const match = url.match(VIDEO_ID_RE);
-  if (!match) {
-    throw new Error("Invalid YouTube URL");
-  }
-  const id = match[1];
-  const yt = await getClient();
-  const info = await yt.getInfo(id);
-
-  const rawFormats = info.streaming_data.formats.concat(info.streaming_data.adaptive_formats);
-
-  const candidates = rawFormats.filter(
-    (f) => f.url || f.cipher || f.signature_cipher
-  );
-
-  const resolved = await Promise.all(
-    candidates.map(async (f) => {
-      try {
-        const resolvedUrl = await f.decipher(yt.session.player);
-        if (!resolvedUrl) return null;
-        return {
-          label: f.has_video
-            ? `${f.quality_label || f.quality} ${f.mime_type.split(";")[0].split("/")[1]}`
-            : `audio ${Math.round((f.bitrate || 0) / 1000)}kbps ${f.mime_type.split(";")[0].split("/")[1]}`,
-          url: resolvedUrl,
-          type: f.has_video ? "video" : "audio",
-        };
-      } catch {
-        return null; 
-      }
-    })
-  );
-
-  const formats = resolved.filter(Boolean);
-
-  return {
-    title: info.basic_info.title,
-    thumbnail: info.basic_info.thumbnail?.slice(-1)[0]?.url,
-    formats,
-  };
+  if (!match(url)) throw new Error("Invalid YouTube URL");
+  return ytdlp.extract(url, "youtube");
 }
 
-module.exports = { match, extract };
+async function download(sourceUrl, formatId, mediaType, videoId) {
+  const url = sourceUrl || (videoId && `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`);
+  if (!url) throw new Error("YouTube URL is required");
+  return ytdlp.download(url, "youtube", formatId, mediaType);
+}
+
+module.exports = { match, extract, download };
