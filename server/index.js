@@ -294,6 +294,10 @@ const center = (text) => {
   return " ".repeat(padding) + text;
 };
 
-app.listen(PORT, () => {
-  console.log(lines.map(center).join("\n"));
-});
+if (require.main === module) {
+  app.listen(PORT, () => {
+    console.log(lines.map(center).join("\n"));
+  });
+}
+
+module.exports = app;
