@@ -1,5 +1,6 @@
-// Keep the Express import in the root entrypoint so Vercel's framework
-// detector recognizes this wrapper as the application entrypoint.
-require("express");
+const express = require("express");
+const app = express();
 
-module.exports = require("./server/index");
+app.use(require("./server/index"));
+
+module.exports = app;
