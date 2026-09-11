@@ -44,8 +44,7 @@ async function processBatch(batchId) {
   const batch = jobs.get(batchId);
   if (!batch) return null;
 
-  // vercel may freeze the function after the response is sent.
-  await Promise.all(batch.items.map((item) => limit(() => processItem(batchId, item.id))));
+  await Promise.all(batch.items.map((item) => processItem(batchId, item.id)));
   return batch;
 }
 
@@ -65,14 +64,14 @@ async function processItem(batchId, itemId) {
   }
 
   try {
-    item.result = await extractor.extract(item.url, batch.options);
+    item.result = await limit(() => extractor.extract(item.url, batch.options));
     if (Array.isArray(item.result.playlist)) {
       const playlistItems = item.result.playlist.map((entry) => ({
         id: nanoid(), url: entry.url, status: "queued", result: null, error: null,
       }));
       const index = batch.items.findIndex((entry) => entry.id === item.id);
       batch.items.splice(index, 1, ...playlistItems);
-      await Promise.all(playlistItems.map((entry) => limit(() => processItem(batchId, entry.id))));
+      await Promise.all(playlistItems.map((entry) => processItem(batchId, entry.id)));
       return;
     }
     item.status = "done";
