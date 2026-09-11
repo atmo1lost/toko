@@ -1,6 +1,6 @@
 # toko - by atmoss
 
-a simple batch media downloader.
+a simple media downloader.
 
 ## run
 
@@ -11,7 +11,7 @@ npm start
 
 open <http://localhost:3000>.
 
-supports youtube, tiktok, and instagram.
+supports youtube, tiktok, instagram, reddit and X (formerly "twitter").
 
 ## vercel
 

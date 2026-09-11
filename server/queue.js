@@ -59,7 +59,7 @@ async function processItem(batchId, itemId) {
   const extractor = findExtractor(item.url);
   if (!extractor) {
     item.status = "error";
-    item.error = "idfk what this is ";
+    item.error = "idfk what this is 💔";
     return;
   }
 

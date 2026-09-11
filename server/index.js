@@ -6,6 +6,8 @@ const { Readable } = require("stream");
 const { createBatch, processBatch, getBatch } = require("./queue");
 const youtube = require("./extractors/youtube");
 const tiktok = require("./extractors/tiktok");
+const reddit = require("./extractors/reddit")
+const twitter = require("./extractors/x(twitter)")
 
 const app = express();
 const maxBatchItems = process.env.VERCEL ? 4 : 25;
@@ -33,6 +35,9 @@ const mediaHostPatterns = [
   /(^|\.)ibytedtos\.com$/i,
   /(^|\.)byteoversea\.com$/i,
   /(^|\.)googlevideo\.com$/i,
+  /(^|\.)redd\.it$/i,
+  /(^|\.)redditmedia\.com$/i,
+  /(^|\.)twimg\.com$/i,
 ];
 
 function isPrivateAddress(address) {
@@ -110,7 +115,7 @@ app.post("/api/batch", async (req, res) => {
   });
   const batch = getBatch(batchId);
 
-  // Vercel can send the follow-up GET to a different serverless instance.
+  // vercel can send the follow-up GET to a different serverless instance.
   // The queue is intentionally in-memory, so waiting here is required to
   // return the finished batch instead of handing the client an ID that the
   // next instance cannot resolve.
@@ -200,6 +205,57 @@ app.get("/api/download", async (req, res) => {
       nodeStream.pipe(res);
     } catch (err) {
       res.status(502).json({ error: `TikTok download failed: ${err.message}` });
+    }
+    return;
+  }
+  if (source === "reddit") {
+    if (!sourceUrl) {
+      return res.status(400).json({ error: "Reddit source URL is required" });
+    }
+    try {
+      const stream = await reddit.download(
+        sourceUrl,
+        formatId,
+        mediaType,
+        { quality: validQuality(req.query.quality), metadata: req.query.metadata === "true" }
+      );
+      const safeName = String(filename || "download.mp4").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const ext = safeName.split(".").pop().toLowerCase();
+      const contentType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : ext === "m4a" ? "audio/mp4" : "video/mp4";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+      const nodeStream = stream instanceof Readable ? stream : Readable.fromWeb(stream);
+      res.once("close", () => nodeStream.destroy());
+      nodeStream.on("error", (streamError) => res.destroy(streamError));
+      nodeStream.pipe(res);
+    } catch (err) {
+      res.status(502).json({ error: `Reddit download failed: ${err.message}` });
+    }
+    return;
+  }
+
+  if (source === "x") {
+    if (!sourceUrl) {
+      return res.status(400).json({ error: "X source URL is required" });
+    }
+    try {
+      const stream = await x.download(
+        sourceUrl,
+        formatId,
+        mediaType,
+        { quality: validQuality(req.query.quality), metadata: req.query.metadata === "true" }
+      );
+      const safeName = String(filename || "download.mp4").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const ext = safeName.split(".").pop().toLowerCase();
+      const contentType = ext === "jpg" || ext === "jpeg" ? "image/jpeg" : ext === "png" ? "image/png" : ext === "m4a" ? "audio/mp4" : "video/mp4";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+      const nodeStream = stream instanceof Readable ? stream : Readable.fromWeb(stream);
+      res.once("close", () => nodeStream.destroy());
+      nodeStream.on("error", (streamError) => res.destroy(streamError));
+      nodeStream.pipe(res);
+    } catch (err) {
+      res.status(502).json({ error: `X download failed: ${err.message}` });
     }
     return;
   }
