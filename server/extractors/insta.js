@@ -170,8 +170,10 @@ async function extract(url) {
     formats.push({ label: "image", url: item.display_url, type: "image" });
   }
 
-  if (!formats.length) {
-    throw new Error("no media formats found in Instagram post");
+  const downloadableFormats = formats.filter((format) => format.type === "video" || format.type === "audio");
+
+  if (!downloadableFormats.length) {
+    throw new Error("no downloadable video or audio formats found in Instagram post");
   }
 
   const firstCarouselMedia = item.carousel_media?.[0];
@@ -187,7 +189,7 @@ async function extract(url) {
       item.display_url ||
       item.edge_sidecar_to_children?.edges?.[0]?.node?.display_url ||
       null,
-    formats,
+    formats: downloadableFormats,
   };
 }
 

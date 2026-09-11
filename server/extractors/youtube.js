@@ -24,11 +24,18 @@ function getVideoId(value) {
 }
 
 function match(url) {
-  return !!getVideoId(url);
+  if (getVideoId(url)) return true;
+  try {
+    const parsed = new URL(url);
+    return ["youtube.com", "m.youtube.com"].includes(parsed.hostname.toLowerCase().replace(/^www\./, "")) && parsed.searchParams.has("list");
+  } catch {
+    return false;
+  }
 }
 
 async function extract(url, options) {
   if (!match(url)) throw new Error("Invalid YouTube URL");
+  if (!getVideoId(url)) return ytdlp.extractPlaylist(url, "youtube", options);
   return ytdlp.extract(url, "youtube", options);
 }
 

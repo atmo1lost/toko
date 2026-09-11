@@ -66,6 +66,15 @@ async function processItem(batchId, itemId) {
 
   try {
     item.result = await extractor.extract(item.url, batch.options);
+    if (Array.isArray(item.result.playlist)) {
+      const playlistItems = item.result.playlist.map((entry) => ({
+        id: nanoid(), url: entry.url, status: "queued", result: null, error: null,
+      }));
+      const index = batch.items.findIndex((entry) => entry.id === item.id);
+      batch.items.splice(index, 1, ...playlistItems);
+      await Promise.all(playlistItems.map((entry) => limit(() => processItem(batchId, entry.id))));
+      return;
+    }
     item.status = "done";
   } catch (err) {
     item.status = "error";

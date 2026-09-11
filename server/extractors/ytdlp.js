@@ -50,8 +50,9 @@ function formatYtdlpError(errorText) {
   return `${errorText}\n\n${deploymentHint}`;
 }
 
-function commonArgs({ youtube = false, tiktok = false } = {}) {
-  const args = ["--no-playlist", "--no-warnings", "--no-check-formats", "--force-ipv4"];
+function commonArgs({ youtube = false, tiktok = false, playlist = false } = {}) {
+  const args = ["--no-warnings", "--no-check-formats", "--force-ipv4"];
+  if (!playlist) args.unshift("--no-playlist");
 
   if (ffmpegPath) {
     args.push("--ffmpeg-location", ffmpegPath);
@@ -215,7 +216,11 @@ function formatLabel(format, type) {
 }
 
 function toFormats(info, source, sourceUrl, options = {}) {
-  const formats = (info.formats || []).filter((format) => format.format_id && format.url);
+  // Only expose actual media streams. Some extractors also return thumbnails,
+  // storyboards, or other entries without either an audio or video codec.
+  const formats = (info.formats || []).filter((format) =>
+    format.format_id && format.url && (hasVideo(format) || hasAudio(format))
+  );
   const output = [];
   const seen = new Set();
   let candidates = formats;
@@ -235,7 +240,25 @@ function toFormats(info, source, sourceUrl, options = {}) {
     return Number(bCombined) - Number(aCombined) || (b.height || 0) - (a.height || 0) || (b.tbr || 0) - (a.tbr || 0);
   });
 
+  // yt-dlp commonly reports both a video-only stream and a combined stream at
+  // the same quality. Keep one option per quality and prefer the one that
+  // already contains audio, so the user does not have to choose between
+  // duplicate-looking downloads.
+  const selectedByQuality = new Map();
   for (const format of ordered) {
+    const type = hasAudio(format) && !hasVideo(format) ? "audio" : "video";
+    const quality = type === "audio"
+      ? `audio:${format.abr || format.tbr || format.ext || "unknown"}`
+      : `video:${format.height || format.resolution || format.format_note || format.ext || "unknown"}`;
+    const existing = selectedByQuality.get(quality);
+    const isBetter = !existing ||
+      (hasVideo(format) && hasAudio(format) && !(hasVideo(existing) && hasAudio(existing))) ||
+      (hasAudio(format) && !hasVideo(format) && (format.abr || format.tbr || 0) > (existing.abr || existing.tbr || 0));
+    if (!isBetter) continue;
+    selectedByQuality.set(quality, format);
+  }
+
+  for (const format of selectedByQuality.values()) {
     const type = hasAudio(format) && !hasVideo(format) ? "audio" : "video";
     const key = `${type}:${format.format_id}`;
     if (seen.has(key)) continue;
@@ -263,6 +286,16 @@ async function extract(url, source, options = {}) {
     thumbnail: info.thumbnail || null,
     formats,
   };
+}
+
+async function extractPlaylist(url, source) {
+  const args = [...commonArgs({ youtube: source === "youtube", playlist: true }), "--flat-playlist", "--dump-single-json", "--skip-download", url];
+  const { stdout } = await run(args);
+  let info;
+  try { info = JSON.parse(stdout.toString("utf8")); } catch { throw new Error("yt-dlp returned invalid playlist metadata"); }
+  const entries = (info.entries || []).filter((entry) => entry && entry.id).map((entry) => ({ url: `https://www.youtube.com/watch?v=${entry.id}` }));
+  if (!entries.length) throw new Error("yt-dlp found no videos in this playlist");
+  return { title: info.title || "YouTube playlist", playlist: entries };
 }
 
 function safeFormatId(formatId) {
@@ -309,4 +342,4 @@ async function download(url, source, formatId, mediaType, options = {}) {
   return stream([...args, url]);
 }
 
-module.exports = { extract, download };
+module.exports = { extract, extractPlaylist, download };

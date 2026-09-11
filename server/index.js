@@ -108,8 +108,9 @@ app.post("/api/batch", async (req, res) => {
     quality: validQuality(quality),
     metadata: metadata === true,
   });
-  const batch = await processBatch(batchId);
+  const batch = getBatch(batchId);
   res.json(batch);
+  processBatch(batchId).catch(() => {});
 });
 
 app.get("/api/batch/:id", (req, res) => {

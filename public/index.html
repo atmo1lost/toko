@@ -1337,7 +1337,7 @@
         ${item.result ? `
           <div class="item-title">${escapeHtml(item.result.title || "")}</div>
           <div class="formats">
-            ${(item.result.formats || []).slice(0, 6).map(f => `<a class="fmt" data-download data-direct-url="${escapeHtml(f.url || "")}" href="${escapeHtml(downloadHref(item, f))}" download>${escapeHtml(f.label)}</a>`).join("")}
+            ${(item.result.formats || []).filter(f => f.type === "video" || f.type === "audio").slice(0, 6).map(f => `<a class="fmt" data-download data-direct-url="${escapeHtml(f.url || "")}" href="${escapeHtml(downloadHref(item, f))}" download>${escapeHtml(f.label)}</a>`).join("")}
           </div>
         ` : ""}
         ${item.error ? `<div class="item-error">${escapeHtml(item.error)}</div>` : ""}
@@ -1456,7 +1456,7 @@
       } catch (err) {
         if (state.settings.debug) console.error("[toko] poll failed", err);
       }
-    }, 800);
+    }, 250);
   }
 
   document.getElementById("go").addEventListener("click", submitBatch);
