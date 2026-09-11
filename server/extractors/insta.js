@@ -1,5 +1,16 @@
 const IG_POST_RE = /^(p|reel|reels|tv)$/;
 const IG_APP_ID = "936619743392459";
+const requestTimeoutMs = 20000;
+
+async function fetchWithTimeout(url, options) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), requestTimeoutMs);
+  try {
+    return await fetch(url, { ...options, signal: controller.signal });
+  } finally {
+    clearTimeout(timeout);
+  }
+}
 
 function getPost(value) {
   if (typeof value !== "string") return null;
@@ -53,20 +64,20 @@ async function extract(url) {
 
   if (process.env.IG_COOKIE) headers.Cookie = process.env.IG_COOKIE;
 
-  let response = await fetch(targetUrl, { headers });
+  let response = await fetchWithTimeout(targetUrl, { headers });
   let json = null;
   if (response.ok) {
     try {
       json = await response.json();
     } catch {
-      // Fall through to the canonical page-data fallback below.
+      // try the next endpoint.
     }
   }
 
   if (!json) {
     const mediaId = shortcodeToMediaId(shortcode);
     if (mediaId) {
-      const mediaResponse = await fetch(`https://www.instagram.com/api/v1/media/${mediaId}/info/`, { headers });
+      const mediaResponse = await fetchWithTimeout(`https://www.instagram.com/api/v1/media/${mediaId}/info/`, { headers });
       if (mediaResponse.ok) {
         try {
           json = await mediaResponse.json();
@@ -78,7 +89,7 @@ async function extract(url) {
   }
 
   if (!json) {
-    const pageResponse = await fetch(url, { headers });
+    const pageResponse = await fetchWithTimeout(url, { headers });
     if (!pageResponse.ok) {
       throw new Error(
         `instagram returned HTTP ${response.status}, likely needs a logged-in session cookie (set IG_COOKIE env var)`
@@ -104,7 +115,7 @@ async function extract(url) {
           break;
         }
       } catch {
-        // Try the next embedded script.
+        // try the next script.
       }
     }
   }
@@ -143,8 +154,7 @@ async function extract(url) {
     });
   }
 
-  // The same endpoint sometimes returns the web/GraphQL shape instead of
-  // the mobile shape above. Normalize its single-media and carousel fields.
+  // normalize the web response shape when needed.
   if (!formats.length && Array.isArray(item.edge_sidecar_to_children?.edges)) {
     item.edge_sidecar_to_children.edges.forEach((edge, index) => {
       const media = edge.node;

@@ -140,8 +140,6 @@
     color: var(--text);
   }
 
-  /* ---------- sidebar ---------- */
-
   .sidebar {
     width: 220px;
     flex-shrink: 0;
@@ -182,8 +180,6 @@
     margin-left: 6px;
     letter-spacing: 0;
   }
-
-  /* queue widget */
 
   .queue-widget {
     position: relative;
@@ -337,8 +333,6 @@
     border-top: 1px solid var(--border);
     padding-top: 10px;
   }
-
-  /* ---------- main ---------- */
 
   main {
     flex: 1;
@@ -524,8 +518,6 @@
     white-space: pre-wrap;
   }
 
-  /* settings */
-
   .field-group {
     border-bottom: 1px solid var(--border-soft);
     padding: 22px 0;
@@ -686,8 +678,6 @@
 
   .saved-flash.show { opacity: 1; }
 
-  /* changelog */
-
   main.wide { max-width: 980px; }
 
   .clog-stage {
@@ -801,8 +791,6 @@
     max-width: 52ch;
   }
 
-  /* about / support prose */
-
   .prose p { font-size: 13.5px; line-height: 1.65; color: var(--text); max-width: 58ch; }
   .prose h2 { font-size: 13.5px; font-weight: 600; margin: 28px 0 10px; }
   .prose ul { margin: 0; padding-left: 18px; }
@@ -914,7 +902,6 @@
 
 <main>
 
-  <!-- home -->
   <section class="view active" id="view-home">
     <div class="home-head">
       <div class="home-head-text">
@@ -928,16 +915,11 @@
     <div class="row">
       <button class="btn-primary" id="go">download em</button>
       <span class="hint" id="settingsHint"></span>
-      <!-- privacy policy will be made when im ready. -->
-      <!-- <br>
-      <span class="hint">by clicking this button, you accept to the <a href="">privacy policy.</a></span> -->
-
     </div>
 
     <div id="results"></div>
   </section>
 
-  <!-- about -->
   <section class="view" id="view-about">
     <h1>about toko</h1>
     <p class="lede">a <a href="https://cobalt.tools?ref=toko:3">cobalt.tools</a> inspired downloader</p>
@@ -957,7 +939,6 @@
     </div>
   </section>
 
-  <!-- settings -->
   <section class="view" id="view-settings">
     <h1>settings</h1>
     <p class="lede">stored locally in ur browser<span class="saved-flash" id="savedFlash">saved</span></p>
@@ -988,7 +969,7 @@
 
     <div class="field-group">
       <div class="field-label">metadata</div>
-      <div class="field-desc">embed title, source url and date into downloaded files where the format supports it.</div>
+      <div class="field-desc">embed available media metadata into downloaded files where the format supports it.</div>
       <div class="toggle-row">
         <label class="switch">
           <input type="checkbox" id="metadataToggle" />
@@ -1011,7 +992,7 @@
 
     <div class="field-group">
       <div class="field-label">local processing</div>
-      <div class="field-desc">do format conversion in this browser tab when possible, instead of sending the file back through the server.</div>
+      <div class="field-desc">download direct media links in this browser when the source provides one.</div>
       <div class="toggle-row">
         <label class="switch">
           <input type="checkbox" id="localToggle" />
@@ -1036,7 +1017,6 @@
     </div>
   </section>
 
-  <!-- changelog -->
   <section class="view" id="view-changelog">
     <h1>changelog</h1>
     <p class="lede">what the changes are n shi</p>
@@ -1062,7 +1042,6 @@
     </div>
   </section>
 
-  <!-- support -->
   <section class="view" id="view-support">
     <h1>support</h1>
     <p class="lede">donate to us!!</p>
@@ -1091,7 +1070,7 @@
 
   const state = {
     settings: loadSettings(),
-    queueItems: [],   // { id, url, status, result, error }
+    queueItems: [],
     activeBatches: new Set(),
   };
 
@@ -1117,7 +1096,6 @@
     flashSaved._t = setTimeout(() => el.classList.remove("show"), 1000);
   }
 
-  // it gotta be reverse order but its chill #fairs👌
   const CHANGELOG = [
     {
       ver: "v0.2.0",
@@ -1133,7 +1111,6 @@
     }, 
   ];
 
-  // splashes, one is picked at random per pageload
   const SPLASHES = [
     "imgs/splash/luckystarsplash1.png",
     "imgs/splash/luckystarsplash2.png",
@@ -1149,8 +1126,6 @@
     img.alt = "splash";
   }
 
-  // ---------- nav ----------
-
   function showView(name) {
     document.querySelectorAll(".view").forEach(v => v.classList.remove("active"));
     document.getElementById("view-" + name).classList.add("active");
@@ -1163,8 +1138,6 @@
   document.querySelectorAll(".nav-item").forEach(btn => {
     btn.addEventListener("click", () => showView(btn.dataset.view));
   });
-
-  // ---------- theme ----------
 
   function applyTheme(theme) {
     document.body.setAttribute("data-theme", theme);
@@ -1180,8 +1153,6 @@
     applyTheme(state.settings.theme);
     saveSettings();
   });
-
-  // ---------- settings fields ----------
 
   function bindToggle(id, key, labelId) {
     const el = document.getElementById(id);
@@ -1233,7 +1204,9 @@
     const input = document.getElementById("instanceInput");
     const val = input.value.trim();
     if (!val) return;
-    state.settings.instances.push(val);
+    const instance = normalizeInstance(val);
+    if (!instance) return;
+    state.settings.instances.push(instance);
     input.value = "";
     renderInstances();
     saveSettings();
@@ -1246,8 +1219,6 @@
     if (state.settings.localProcessing) bits.push("local processing on");
     document.getElementById("settingsHint").textContent = bits.join(" · ");
   }
-
-  // ---------- changelog ----------
 
   let clogIndex = 0;
 
@@ -1276,8 +1247,6 @@
   document.getElementById("clogNext").addEventListener("click", () => {
     if (clogIndex < CHANGELOG.length - 1) { clogIndex++; renderChangelog(); }
   });
-
-  // ---------- queue / download ----------
 
   function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({
@@ -1311,13 +1280,21 @@
   }
 
   function downloadHref(item, f) {
-    const name = `${(item.result.title || "download").slice(0, 60)} - ${f.label}.${extFor(f.type)}`;
+    const serverType = state.settings.quality === "audio" && ["youtube", "tiktok"].includes(f.source)
+      ? "audio"
+      : f.type;
+    const name = `${(item.result.title || "download").slice(0, 60)} - ${f.label}.${extFor(serverType)}`;
+    if (state.settings.localProcessing && f.url && /^https?:\/\//i.test(f.url)) {
+      return f.url;
+    }
     const params = new URLSearchParams({
       filename: name,
+      quality: state.settings.quality,
+      metadata: String(state.settings.metadata),
       ...(f.source === "youtube"
-        ? { source: "youtube", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: f.type }
+        ? { source: "youtube", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: serverType }
         : f.source === "tiktok"
-        ? { source: "tiktok", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: f.type }
+        ? { source: "tiktok", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: serverType }
         : { url: f.url }),
     });
     return `/api/download?${params}`;
@@ -1333,18 +1310,13 @@
     const originalText = link.textContent;
     link.textContent = "downloading...";
 
-    // Let the browser own the response. Fetching and converting to a Blob
-    // keeps the browser's download manager unaware until every byte is done.
-    // An iframe preserves this page while Content-Disposition starts a native
-    // browser download whose progress is visible in the download list.
+    // let the browser handle the download.
     const frame = document.createElement("iframe");
     frame.hidden = true;
     frame.src = link.href;
     document.body.appendChild(frame);
 
-    // Extraction can take several seconds before the first media byte is
-    // available. Keep the request alive long enough for slow sources and let
-    // the browser's download manager own the response after it starts.
+    // keep the hidden frame alive for slow downloads.
     setTimeout(() => frame.remove(), 60 * 60 * 1000);
     setTimeout(() => {
       link.textContent = originalText;
@@ -1365,7 +1337,7 @@
         ${item.result ? `
           <div class="item-title">${escapeHtml(item.result.title || "")}</div>
           <div class="formats">
-            ${(item.result.formats || []).slice(0, 6).map(f => `<a class="fmt" data-download data-direct-url="${escapeHtml(f.url || "")}" href="${downloadHref(item, f)}" download>${escapeHtml(f.label)}</a>`).join("")}
+            ${(item.result.formats || []).slice(0, 6).map(f => `<a class="fmt" data-download data-direct-url="${escapeHtml(f.url || "")}" href="${escapeHtml(downloadHref(item, f))}" download>${escapeHtml(f.label)}</a>`).join("")}
           </div>
         ` : ""}
         ${item.error ? `<div class="item-error">${escapeHtml(item.error)}</div>` : ""}
@@ -1377,6 +1349,30 @@
   function renderAll() {
     renderQueueWidget();
     renderResults();
+  }
+
+  function normalizeInstance(value) {
+    try {
+      const parsed = new URL(value);
+      if (!["http:", "https:"].includes(parsed.protocol)) return null;
+      return parsed.toString().replace(/\/+$/, "");
+    } catch {
+      return null;
+    }
+  }
+
+  async function requestBatch(endpoint, body) {
+    const res = await fetch(`${endpoint}/api/batch`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json();
+    return res.ok && Array.isArray(data.items) ? data : null;
+  }
+
+  function batchErrorCount(data) {
+    return data.items.filter(item => item.status === "error").length;
   }
 
   async function submitBatch() {
@@ -1391,20 +1387,25 @@
     if (state.settings.debug) console.log("[toko] submitting batch", body);
 
     try {
-      const res = await fetch("/api/batch", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(body)
-      });
-      const data = await res.json();
-      if (data.error) {
-        goBtn.disabled = false;
-        return;
+      const endpoints = ["", ...state.settings.instances.map(normalizeInstance).filter(Boolean)];
+      let selected = null;
+      for (const endpoint of endpoints) {
+        try {
+          const data = await requestBatch(endpoint, body);
+          if (!data) continue;
+          if (!selected || batchErrorCount(data) < batchErrorCount(selected.data)) {
+            selected = { data, endpoint };
+          }
+          if (batchErrorCount(data) === 0) break;
+        } catch (err) {
+          if (state.settings.debug) console.error(`[toko] instance failed: ${endpoint || "local"}`, err);
+        }
       }
 
-      // The API now returns the terminal batch state directly. This is
-      // important on Vercel, where a background task cannot outlive the
-      // serverless request that started it.
+      if (!selected) return;
+      const { data, endpoint } = selected;
+
+      // use the finished batch when the api returns it.
       if (Array.isArray(data.items)) {
         data.items.forEach(fresh => {
           const idx = state.queueItems.findIndex(i => i.id === fresh.id);
@@ -1415,7 +1416,8 @@
         if (data.items.every(i => i.status === "done" || i.status === "error")) return;
       }
 
-      pollBatch(data.batchId);
+      const batchId = data.id || data.batchId;
+      if (batchId) pollBatch(batchId, endpoint);
     } catch (err) {
       if (state.settings.debug) console.error("[toko] submit failed", err);
     } finally {
@@ -1423,11 +1425,11 @@
     }
   }
 
-  function pollBatch(batchId) {
+  function pollBatch(batchId, endpoint = "") {
     state.activeBatches.add(batchId);
     const interval = setInterval(async () => {
       try {
-        const res = await fetch(`/api/batch/${batchId}`);
+        const res = await fetch(`${endpoint}/api/batch/${batchId}`);
         const batch = await res.json();
         if (batch.error) { clearInterval(interval); state.activeBatches.delete(batchId); return; }
 
@@ -1458,8 +1460,6 @@
   }
 
   document.getElementById("go").addEventListener("click", submitBatch);
-
-  // ---------- init ----------
 
   applyTheme(state.settings.theme);
   renderInstances();

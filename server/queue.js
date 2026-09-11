@@ -3,6 +3,7 @@ const pLimit = require("p-limit");
 const { findExtractor } = require("./extractors");
 
 const jobs = new Map();
+const jobTtlMs = 15 * 60 * 1000;
 
 function normalizeUrl(value) {
   if (typeof value !== "string") return value;
@@ -10,20 +11,31 @@ function normalizeUrl(value) {
   return (markdown ? markdown[1] : value).trim();
 }
 
-// cap concurrent extractions
 const limit = pLimit(4);
 
-function createBatch(urls) {
+function createBatch(urls, options = {}) {
   const batchId = nanoid();
   const items = urls.map((url) => ({
     id: nanoid(),
     url: normalizeUrl(url),
-    status: "queued", // queued -> processing -> done or error
+    status: "queued",
     result: null,
     error: null,
   }));
 
-  jobs.set(batchId, { id: batchId, items, createdAt: Date.now() });
+  const batch = {
+    id: batchId,
+    items,
+    options: {
+      quality: options.quality || "auto",
+      metadata: options.metadata === true,
+    },
+    createdAt: Date.now(),
+  };
+  jobs.set(batchId, batch);
+
+  const cleanup = setTimeout(() => jobs.delete(batchId), jobTtlMs);
+  cleanup.unref?.();
 
   return batchId;
 }
@@ -32,9 +44,7 @@ async function processBatch(batchId) {
   const batch = jobs.get(batchId);
   if (!batch) return null;
 
-  // Vercel can freeze a serverless invocation as soon as the response is
-  // sent, so this work must be awaited by the API handler instead of being
-  // started as fire-and-forget background work.
+  // vercel may freeze the function after the response is sent.
   await Promise.all(batch.items.map((item) => limit(() => processItem(batchId, item.id))));
   return batch;
 }
@@ -55,7 +65,7 @@ async function processItem(batchId, itemId) {
   }
 
   try {
-    item.result = await extractor.extract(item.url);
+    item.result = await extractor.extract(item.url, batch.options);
     item.status = "done";
   } catch (err) {
     item.status = "error";

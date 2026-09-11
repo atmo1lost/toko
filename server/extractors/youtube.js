@@ -27,15 +27,15 @@ function match(url) {
   return !!getVideoId(url);
 }
 
-async function extract(url) {
+async function extract(url, options) {
   if (!match(url)) throw new Error("Invalid YouTube URL");
-  return ytdlp.extract(url, "youtube");
+  return ytdlp.extract(url, "youtube", options);
 }
 
-async function download(sourceUrl, formatId, mediaType, videoId) {
+async function download(sourceUrl, formatId, mediaType, videoId, options) {
   const url = sourceUrl || (videoId && `https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`);
   if (!url) throw new Error("YouTube URL is required");
-  return ytdlp.download(url, "youtube", formatId, mediaType);
+  return ytdlp.download(url, "youtube", formatId, mediaType, options);
 }
 
 module.exports = { match, extract, download };

@@ -17,6 +17,38 @@ const configuredTimeout = Number(process.env.TOKO_YTDLP_TIMEOUT_MS || 45000);
 const ytdlpTimeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
   ? configuredTimeout
   : 45000;
+const runtimeCookieFile = "/tmp/toko-ytdlp-cookies.txt";
+
+function getCookieFile() {
+  const configuredFile = process.env.TOKO_YTDLP_COOKIES;
+  if (configuredFile && fs.existsSync(configuredFile)) return configuredFile;
+
+  const cookieContents = process.env.TOKO_YTDLP_COOKIES_CONTENT;
+  const cookieBase64 = process.env.TOKO_YTDLP_COOKIES_BASE64;
+  if (!cookieContents && !cookieBase64) return null;
+
+  try {
+    const contents = cookieBase64
+      ? Buffer.from(cookieBase64, "base64").toString("utf8")
+      : cookieContents;
+    if (!contents || !contents.includes("youtube.com")) return null;
+    fs.writeFileSync(runtimeCookieFile, contents, { mode: 0o600 });
+    return runtimeCookieFile;
+  } catch {
+    return null;
+  }
+}
+
+function formatYtdlpError(errorText) {
+  if (!/sign in to confirm|not a bot|confirm you're not a bot/i.test(errorText)) {
+    return errorText;
+  }
+
+  const deploymentHint = process.env.VERCEL
+    ? "YouTube rejected the Vercel server IP. Configure TOKO_YTDLP_COOKIES_CONTENT (or TOKO_YTDLP_COOKIES_BASE64) with a fresh Netscape cookie export and TOKO_YTDLP_PROXY using the same egress network, then redeploy. TOKO_YTDLP_BROWSER cannot work in a Vercel serverless function."
+    : "YouTube rejected this request. Use a fresh cookie export from the same browser and network, or configure TOKO_YTDLP_PROXY.";
+  return `${errorText}\n\n${deploymentHint}`;
+}
 
 function commonArgs({ youtube = false, tiktok = false } = {}) {
   const args = ["--no-playlist", "--no-warnings", "--no-check-formats", "--force-ipv4"];
@@ -34,11 +66,13 @@ function commonArgs({ youtube = false, tiktok = false } = {}) {
     args.push("--remote-components", "ejs:github");
   }
 
-  if (process.env.TOKO_YTDLP_BROWSER) {
+  // vercel has no local browser profile.
+  if (process.env.TOKO_YTDLP_BROWSER && !process.env.VERCEL) {
     args.push("--cookies-from-browser", process.env.TOKO_YTDLP_BROWSER);
   }
-  if (process.env.TOKO_YTDLP_COOKIES) {
-    args.push("--cookies", process.env.TOKO_YTDLP_COOKIES);
+  const cookieFile = getCookieFile();
+  if (cookieFile) {
+    args.push("--cookies", cookieFile);
   }
   if (process.env.TOKO_YTDLP_PROXY) {
     args.push("--proxy", process.env.TOKO_YTDLP_PROXY);
@@ -73,7 +107,7 @@ function run(args, { collectStdout = true } = {}) {
       clearTimeout(timeout);
       const errorText = Buffer.concat(stderr).toString("utf8").trim();
       if (code !== 0) {
-        reject(new Error(errorText.split("\n").slice(-8).join("\n") || `yt-dlp exited with ${code || signal}`));
+        reject(new Error(formatYtdlpError(errorText.split("\n").slice(-8).join("\n") || `yt-dlp exited with ${code || signal}`)));
         return;
       }
       resolve({ stdout: Buffer.concat(stdout), stderr: errorText });
@@ -83,12 +117,10 @@ function run(args, { collectStdout = true } = {}) {
 
 function errorFromStderr(stderr, code, signal) {
   const errorText = Buffer.concat(stderr).toString("utf8").trim();
-  return new Error(errorText.split("\n").slice(-8).join("\n") || `yt-dlp exited with ${code || signal}`);
+  return new Error(formatYtdlpError(errorText.split("\n").slice(-8).join("\n") || `yt-dlp exited with ${code || signal}`));
 }
 
-// Keep the server response connected to yt-dlp's stdout. Waiting for the
-// process to finish before returning a file stream makes the browser appear
-// idle until the entire media file already exists.
+// stream output as it arrives so the browser can start downloading at once.
 function stream(args) {
   return new Promise((resolve, reject) => {
     const child = spawn(executable, args, { stdio: ["ignore", "pipe", "pipe"] });
@@ -96,10 +128,13 @@ function stream(args) {
     const stderr = [];
     let started = false;
     let settled = false;
+    const timeout = setTimeout(() => {
+      const error = new Error(`yt-dlp timed out after ${Math.ceil(ytdlpTimeoutMs / 1000)}s`);
+      if (child.exitCode === null && child.signalCode === null) child.kill("SIGTERM");
+      fail(error);
+    }, ytdlpTimeoutMs);
 
-    // The server attaches its own error handler after this promise resolves.
-    // This listener prevents an early spawn failure from becoming an
-    // unhandled EventEmitter error while the promise is being rejected.
+    // prevent an unhandled stream error during startup.
     output.on("error", () => {});
 
     child.stdout.pipe(output);
@@ -123,6 +158,7 @@ function stream(args) {
     });
 
     child.on("error", (error) => {
+      clearTimeout(timeout);
       if (error.code === "ENOENT") {
         fail(new Error(`yt-dlp was not found. Install it or set TOKO_YTDLP_PATH (${executable})`));
       } else {
@@ -131,6 +167,7 @@ function stream(args) {
     });
 
     child.on("close", (code, signal) => {
+      clearTimeout(timeout);
       if (code !== 0) {
         fail(errorFromStderr(stderr, code, signal));
       } else if (!started) {
@@ -139,6 +176,7 @@ function stream(args) {
     });
 
     output.once("close", () => {
+      clearTimeout(timeout);
       if (child.exitCode === null && child.signalCode === null) {
         child.kill("SIGTERM");
       }
@@ -176,12 +214,22 @@ function formatLabel(format, type) {
   return `${format.resolution || format.format_note || format.ext || "video"} ${format.ext || ""}`.trim();
 }
 
-function toFormats(info, source, sourceUrl) {
+function toFormats(info, source, sourceUrl, options = {}) {
   const formats = (info.formats || []).filter((format) => format.format_id && format.url);
   const output = [];
   const seen = new Set();
+  let candidates = formats;
 
-  const ordered = formats.slice().sort((a, b) => {
+  if (options.quality === "audio") {
+    const audioOnly = formats.filter((format) => hasAudio(format) && !hasVideo(format));
+    if (audioOnly.length) candidates = audioOnly;
+  } else if (/^\d+$/.test(options.quality || "")) {
+    const height = Number(options.quality);
+    const withinQuality = formats.filter((format) => !hasVideo(format) || !format.height || format.height <= height);
+    if (withinQuality.length) candidates = withinQuality;
+  }
+
+  const ordered = candidates.slice().sort((a, b) => {
     const aCombined = hasVideo(a) && hasAudio(a);
     const bCombined = hasVideo(b) && hasAudio(b);
     return Number(bCombined) - Number(aCombined) || (b.height || 0) - (a.height || 0) || (b.tbr || 0) - (a.tbr || 0);
@@ -206,9 +254,9 @@ function toFormats(info, source, sourceUrl) {
   return output;
 }
 
-async function extract(url, source) {
+async function extract(url, source, options = {}) {
   const info = await readInfo(url, source);
-  const formats = toFormats(info, source, url);
+  const formats = toFormats(info, source, url, options);
   if (!formats.length) throw new Error("yt-dlp found no downloadable formats");
   return {
     title: info.title || `${source} video`,
@@ -221,9 +269,17 @@ function safeFormatId(formatId) {
   return typeof formatId === "string" && /^[a-zA-Z0-9_.-]+$/.test(formatId) ? formatId : null;
 }
 
-async function download(url, source, formatId, mediaType) {
+function qualitySelector(quality, mediaType) {
+  if (quality === "audio") return "bestaudio/best";
+  if (mediaType === "audio" || !/^\d+$/.test(quality)) return null;
+  const height = Number(quality);
+  return `bestvideo[height<=${height}]+bestaudio/best[height<=${height}]/best`;
+}
+
+async function download(url, source, formatId, mediaType, options = {}) {
   const selected = safeFormatId(formatId);
-  const selector = selected
+  const forcedSelector = qualitySelector(options.quality, mediaType);
+  const selector = forcedSelector || (selected
     ? mediaType === "video"
       ? `${selected}+bestaudio/${selected}/best`
       : mediaType === "audio"
@@ -231,9 +287,9 @@ async function download(url, source, formatId, mediaType) {
       : `${selected}/best`
     : mediaType === "audio"
     ? "bestaudio/best"
-    : "bestvideo*+bestaudio/best";
+    : "bestvideo*+bestaudio/best");
 
-  return stream([
+  const args = [
     ...commonArgs({ youtube: source === "youtube", tiktok: source === "tiktok" }),
     "--format",
     selector,
@@ -247,8 +303,10 @@ async function download(url, source, formatId, mediaType) {
     "ffmpeg_o:-f mp4 -movflags frag_keyframe+empty_moov",
     "--no-part",
     "--no-continue",
-    url,
-  ]);
+  ];
+  if (options.metadata === true) args.push("--embed-metadata");
+
+  return stream([...args, url]);
 }
 
 module.exports = { extract, download };
