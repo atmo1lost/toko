@@ -58,8 +58,12 @@ function commonArgs({ youtube = false, tiktok = false, playlist = false } = {}) 
     args.push("--ffmpeg-location", ffmpegPath);
   }
 
-  if (tiktok && process.env.TOKO_YTDLP_IMPERSONATE !== "false") {
-    args.push("--impersonate", process.env.TOKO_YTDLP_IMPERSONATE || "chrome");
+  // The bundled yt-dlp binary does not ship with curl_cffi impersonation
+  // targets. Passing the old default (`chrome`) makes yt-dlp fail before it
+  // can inspect TikTok URLs. Only opt into impersonation when the deployment
+  // explicitly provides a target and its matching dependency.
+  if (tiktok && process.env.TOKO_YTDLP_IMPERSONATE && process.env.TOKO_YTDLP_IMPERSONATE !== "false") {
+    args.push("--impersonate", process.env.TOKO_YTDLP_IMPERSONATE);
   }
 
   if (youtube) {
