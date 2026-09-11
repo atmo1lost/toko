@@ -7,7 +7,7 @@ const { createBatch, processBatch, getBatch } = require("./queue");
 const youtube = require("./extractors/youtube");
 const tiktok = require("./extractors/tiktok");
 const reddit = require("./extractors/reddit")
-const twitter = require("./extractors/x(twitter)")
+const x = require("./extractors/x")
 
 const app = express();
 const maxBatchItems = process.env.VERCEL ? 4 : 25;
