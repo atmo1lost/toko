@@ -109,6 +109,20 @@ app.post("/api/batch", async (req, res) => {
     metadata: metadata === true,
   });
   const batch = getBatch(batchId);
+
+  // Vercel can send the follow-up GET to a different serverless instance.
+  // The queue is intentionally in-memory, so waiting here is required to
+  // return the finished batch instead of handing the client an ID that the
+  // next instance cannot resolve.
+  if (process.env.VERCEL) {
+    try {
+      await processBatch(batchId);
+    } catch (err) {
+      return res.status(500).json({ error: `batch processing failed: ${err.message}` });
+    }
+    return res.json(getBatch(batchId) || batch);
+  }
+
   res.json(batch);
   processBatch(batchId).catch(() => {});
 });
