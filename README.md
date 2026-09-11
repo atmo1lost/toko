@@ -1,4 +1,4 @@
-# toko
+# toko - by atmoss
 
 a simple batch media downloader.
 
@@ -33,3 +33,4 @@ for local browser cookies, use:
 ```bash
 TOKO_YTDLP_BROWSER=firefox npm start
 ```
+<3 from atmoss.
