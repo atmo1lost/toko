@@ -25,11 +25,18 @@ function createBatch(urls) {
 
   jobs.set(batchId, { id: batchId, items, createdAt: Date.now() });
 
-  items.forEach((item) => {
-    limit(() => processItem(batchId, item.id));
-  });
-
   return batchId;
+}
+
+async function processBatch(batchId) {
+  const batch = jobs.get(batchId);
+  if (!batch) return null;
+
+  // Vercel can freeze a serverless invocation as soon as the response is
+  // sent, so this work must be awaited by the API handler instead of being
+  // started as fire-and-forget background work.
+  await Promise.all(batch.items.map((item) => limit(() => processItem(batchId, item.id))));
+  return batch;
 }
 
 async function processItem(batchId, itemId) {
@@ -60,4 +67,4 @@ function getBatch(batchId) {
   return jobs.get(batchId) || null;
 }
 
-module.exports = { createBatch, getBatch };
+module.exports = { createBatch, processBatch, getBatch };

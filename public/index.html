@@ -1401,6 +1401,20 @@
         goBtn.disabled = false;
         return;
       }
+
+      // The API now returns the terminal batch state directly. This is
+      // important on Vercel, where a background task cannot outlive the
+      // serverless request that started it.
+      if (Array.isArray(data.items)) {
+        data.items.forEach(fresh => {
+          const idx = state.queueItems.findIndex(i => i.id === fresh.id);
+          if (idx === -1) state.queueItems.push(fresh);
+          else state.queueItems[idx] = fresh;
+        });
+        renderAll();
+        if (data.items.every(i => i.status === "done" || i.status === "error")) return;
+      }
+
       pollBatch(data.batchId);
     } catch (err) {
       if (state.settings.debug) console.error("[toko] submit failed", err);

@@ -13,6 +13,10 @@ const bundledYtdlpCandidates = [
 const bundledYtdlp = bundledYtdlpCandidates.find((candidate) => fs.existsSync(candidate));
 const executable = process.env.TOKO_YTDLP_PATH || bundledYtdlp || "yt-dlp";
 const ffmpegPath = process.env.TOKO_FFMPEG_PATH || bundledFfmpeg;
+const configuredTimeout = Number(process.env.TOKO_YTDLP_TIMEOUT_MS || 45000);
+const ytdlpTimeoutMs = Number.isFinite(configuredTimeout) && configuredTimeout > 0
+  ? configuredTimeout
+  : 45000;
 
 function commonArgs({ youtube = false, tiktok = false } = {}) {
   const args = ["--no-playlist", "--no-warnings", "--no-check-formats", "--force-ipv4"];
@@ -48,12 +52,17 @@ function run(args, { collectStdout = true } = {}) {
     const child = spawn(executable, args, { stdio: ["ignore", "pipe", "pipe"] });
     const stdout = [];
     const stderr = [];
+    const timeout = setTimeout(() => {
+      child.kill("SIGTERM");
+      reject(new Error(`yt-dlp timed out after ${Math.ceil(ytdlpTimeoutMs / 1000)}s`));
+    }, ytdlpTimeoutMs);
 
     child.stdout.on("data", (chunk) => {
       if (collectStdout) stdout.push(chunk);
     });
     child.stderr.on("data", (chunk) => stderr.push(chunk));
     child.on("error", (error) => {
+      clearTimeout(timeout);
       if (error.code === "ENOENT") {
         reject(new Error(`yt-dlp was not found. Install it or set TOKO_YTDLP_PATH (${executable})`));
       } else {
@@ -61,6 +70,7 @@ function run(args, { collectStdout = true } = {}) {
       }
     });
     child.on("close", (code, signal) => {
+      clearTimeout(timeout);
       const errorText = Buffer.concat(stderr).toString("utf8").trim();
       if (code !== 0) {
         reject(new Error(errorText.split("\n").slice(-8).join("\n") || `yt-dlp exited with ${code || signal}`));

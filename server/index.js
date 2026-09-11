@@ -1,7 +1,7 @@
 const express = require("express");
 const path = require("path");
 const { Readable } = require("stream");
-const { createBatch, getBatch } = require("./queue");
+const { createBatch, processBatch, getBatch } = require("./queue");
 const youtube = require("./extractors/youtube");
 const tiktok = require("./extractors/tiktok");
 
@@ -9,14 +9,15 @@ const app = express();
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "..", "public")));
 
-app.post("/api/batch", (req, res) => {
+app.post("/api/batch", async (req, res) => {
   const { urls } = req.body;
   if (!Array.isArray(urls) || urls.length === 0) {
     return res.status(400).json({ error: "urls must be a non-empty array" });
   }
 
   const batchId = createBatch(urls);
-  res.json({ batchId });
+  const batch = await processBatch(batchId);
+  res.json(batch);
 });
 
 app.get("/api/batch/:id", (req, res) => {
