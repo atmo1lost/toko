@@ -8,6 +8,7 @@
     "start": "node server/index.js"
   },
   "dependencies": {
+    "busboy": "^1.6.0",
     "axios": "^1.20.0",
     "bgutils-js": "^4.0.3",
     "express": "^4.19.2",

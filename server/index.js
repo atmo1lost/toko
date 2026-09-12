@@ -1,4 +1,9 @@
 const express = require("express");
+const fs = require("fs");
+const os = require("os");
+const { randomUUID } = require("crypto");
+const busboy = require("busboy");
+const { remuxFile, extOf } = require("./remux");
 const dns = require("dns").promises;
 const net = require("net");
 const path = require("path");
@@ -132,6 +137,69 @@ app.post("/api/batch", async (req, res) => {
 
   res.json(batch);
   processBatch(batchId).catch(() => {});
+});
+
+const maxRemuxBytes = Number(process.env.TOKO_REMUX_MAX_BYTES || 500 * 1024 * 1024);
+
+app.post("/api/remux", (req, res) => {
+  const bb = busboy({ headers: req.headers, limits: { files: 1, fileSize: maxRemuxBytes } });
+  let tempInputPath = null;
+  let originalName = null;
+  let fileSeen = false;
+  let tooLarge = false;
+
+  const cleanup = () => {
+    if (tempInputPath) fs.rm(tempInputPath, { force: true }, () => {});
+  };
+
+  bb.on("file", (_name, stream, info) => {
+    fileSeen = true;
+    originalName = info.filename || "upload";
+    const ext = extOf(originalName) || "bin";
+    tempInputPath = path.join(os.tmpdir(), `toko-remux-in-${randomUUID()}.${ext}`);
+    const writeStream = fs.createWriteStream(tempInputPath);
+
+    stream.on("limit", () => {
+      tooLarge = true;
+      stream.unpipe(writeStream);
+      writeStream.destroy();
+    });
+    stream.pipe(writeStream);
+  });
+
+  bb.on("error", (err) => {
+    cleanup();
+    if (!res.headersSent) res.status(400).json({ error: `upload failed: ${err.message}` });
+  });
+
+  bb.on("close", async () => {
+    if (tooLarge) {
+      cleanup();
+      return res.status(413).json({ error: `file exceeds the ${Math.floor(maxRemuxBytes / (1024 * 1024))}MB limit` });
+    }
+    if (!fileSeen || !tempInputPath) {
+      return res.status(400).json({ error: "a file is required" });
+    }
+
+    try {
+      const { outputPath, ext } = await remuxFile(tempInputPath, originalName);
+      const baseName = originalName.replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]/g, "_") || "file";
+      const safeName = `${baseName}_toko-remux.${ext}`;
+
+      res.setHeader("Content-Type", "application/octet-stream");
+      res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+      const readStream = fs.createReadStream(outputPath);
+      readStream.pipe(res);
+      readStream.on("close", () => fs.rm(outputPath, { force: true }, () => {}));
+      readStream.on("error", () => { if (!res.headersSent) res.status(500).end(); });
+    } catch (err) {
+      res.status(422).json({ error: `remux failed: ${err.message}` });
+    } finally {
+      cleanup();
+    }
+  });
+
+  req.pipe(bb);
 });
 
 app.get("/api/batch/:id", (req, res) => {

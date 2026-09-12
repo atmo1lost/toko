@@ -35,4 +35,7 @@ for local browser cookies, use:
 ```bash
 TOKO_YTDLP_BROWSER=firefox npm start
 ```
+## for more, take a look at the **docs**
+1. [env vars](docs/env_variables.md)
+
 <3 from atmoss.
