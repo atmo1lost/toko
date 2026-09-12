@@ -2,6 +2,8 @@
 
 a simple media downloader.
 
+### discord: https://discord.gg/AGd3PgxwMA
+
 ## run
 
 ```bash

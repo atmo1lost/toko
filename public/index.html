@@ -832,9 +832,20 @@
     main { padding: 28px 20px; max-width: none; }
     .splash-img { display: none; }
   }
+  .build-tag {
+    position: fixed;
+    bottom: 8px;
+    right: 8px;
+    font-size: 12px;
+    color: rgba(255, 255, 255, 0.4);
+    font-family: monospace;
+    pointer-events: none;
+    z-index: 999;
+  }
 </style>
 </head>
 <body data-theme="dark">
+<div class="build-tag">build 0.4.0</div>
 
 <aside class="sidebar">
   <div class="brand">to<span class="dot">·</span>ko</div>
@@ -886,7 +897,7 @@
 
       <a
         class="nav-item"
-        href="https://discord.gg/YOURINVITE"
+        href="https://discord.gg/AGd3PgxwMA"
         target="_blank"
         rel="noopener noreferrer"
       >
@@ -911,7 +922,7 @@
       <img class="splash-img" id="splashImg" src="" alt="" />
     </div>
 
-    <textarea style="resize: none;" id="urls" placeholder="we got insta, tiktok and youtube supported"></textarea>
+    <textarea style="resize: none;" id="urls" placeholder="we got insta, tiktok, youtube, x, reddit and streamable supported"></textarea>
     <div class="row">
       <button class="btn-primary" id="go">download em</button>
       <span class="hint" id="settingsHint"></span>
@@ -921,23 +932,26 @@
   </section>
 
   <section class="view" id="view-about">
-    <h1>about toko</h1>
-    <p class="lede">a <a href="https://cobalt.tools?ref=toko:3">cobalt.tools</a> inspired downloader</p>
-    <div class="prose">
-      <h2>how its put together</h2>
+      <h1>about toko</h1>
+      <p class="lede">a <a href="https://cobalt.tools?ref=toko:3">cobalt.tools</a> inspired downloader</p>
+      <div class="prose">
       <span class="dim">this is for nerds so baibai</span>
-      <ul>
-        <li>each source lives in its own extractor file exporting <code>match(url)</code> and <code>extract(url)</code></li>
-        <li>a queue manager runs up to four extractions concurrently and keeps an in-memory job store</li>
-        <li>the api exposes <code>POST /api/batch</code> to submit urls and <code>GET /api/batch/:id</code> to poll status</li>
-      </ul>
-      <h2>known gaps in this beta</h2>
-      <ul>
-        <li>only youtube, tiktok & insta is implemented right now, other sources are stubbed by the registry pattern</li>
-        <li>the job store is in-memory, a restart wipes the queue</li>
-      </ul>
-    </div>
-  </section>
+        <h2>how its put together</h2>
+        <ul>
+          <li>each source lives in its own extractor file exporting <code>match(url)</code> and <code>extract(url)</code></li>
+          <li>a queue manager runs up to four extractions concurrently and keeps an in-memory job store</li>
+          <li>the api exposes <code>POST /api/batch</code> to submit urls and <code>GET /api/batch/:id</code> to poll status</li>
+        </ul>
+        <h2>why i still like this thing</h2>
+        <p>most of this project is stubborn debugging with a UI i keep polishing so the pain feels worth it. cracking tiktok's <code>__UNIVERSAL_DATA_FOR_REHYDRATION__</code> blob felt better than it should have. finding the missing header on instagram's api after staring at a 400 for too long felt even better.</p>
+        <ul>
+          <li>streaming downloads through the server instead of buffering them, so things stop dying with oom</li>
+          <li>serializing token generation instead of letting every queued item race each other</li>
+          <li>rebuilding the sidebar and queue widget more times than the extractors, because the UI is the part i actually enjoy</li>
+        </ul>
+        <p>six sources download clean now: youtube, tiktok, instagram, x, reddit, streamable. youtube took the longest to crack, cipher decoding and token generation are not fun problems. each new extractor after that got faster to add since the pattern was already proven out.</p>
+      </div>
+    </section>
 
   <section class="view" id="view-settings">
     <h1>settings</h1>
@@ -1053,7 +1067,7 @@
       <div class="field-label">issue on the website?</div>
       <div class="field-desc">open an issue on the <a href="https://github.com/atmo1lost/toko">repo</a>, or reach out through where ever you found the website on.</div>
     </div>
-    <p class="field-desc">&lt;3 from <a href="https://github.com/atmo1lost">atmoss</a> & <a href="https://github.com/meowmrrrp">meowcorp</a></p>
+    <p class="field-desc">&lt;3 from <a href="https://github.com/atmo1lost">atmoss</a> & <a href="https://github.com/meowmrrrp">meowcorp</a> (basically me)</p>
   </section>
 
 </main>
