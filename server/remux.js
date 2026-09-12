@@ -4,9 +4,6 @@ const os = require("os");
 const path = require("path");
 const { randomUUID } = require("crypto");
 const bundledFfmpeg = require("ffmpeg-static");
-const { del: delBlob } = require("@vercel/blob");
-const { handleUpload } = require("@vercel/blob/client");
-const { remuxFile, extOf } = require("./remux");
 
 const ffmpegPath = process.env.TOKO_FFMPEG_PATH || bundledFfmpeg || "ffmpeg";
 const remuxTimeoutMs = Number(process.env.TOKO_REMUX_TIMEOUT_MS || 120000);
