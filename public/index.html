@@ -1545,18 +1545,27 @@
   remuxGo.addEventListener("click", async () => {
     if (!remuxSelected) return;
     remuxGo.disabled = true;
-    remuxHint.textContent = "fixing...";
+    remuxHint.textContent = "fixing!...";
 
     try {
       const form = new FormData();
       form.append("file", remuxSelected, remuxSelected.name);
       const res = await fetch("/api/remux", { method: "POST", body: form });
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        throw new Error(data.error || `remux failed (${res.status})`);
+      const safeRes = res.clone(); // isolate our read from anything else touching `res`
+
+      if (!safeRes.ok) {
+        let message = `remux failed (${safeRes.status})`;
+        try {
+          const data = await safeRes.json();
+          if (data.error) message = data.error;
+        } catch {
+
+        }
+        throw new Error(message);
       }
-      const blob = await res.blob();
-      const disposition = res.headers.get("content-disposition") || "";
+
+      const blob = await safeRes.blob();
+      const disposition = safeRes.headers.get("content-disposition") || "";
       const match = /filename="([^"]+)"/.exec(disposition);
       const dot = remuxSelected.name.lastIndexOf(".");
       const ext = dot > -1 ? remuxSelected.name.slice(dot + 1) : "bin";
