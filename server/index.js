@@ -2,7 +2,6 @@ const express = require("express");
 const fs = require("fs");
 const os = require("os");
 const { randomUUID } = require("crypto");
-const busboy = require("busboy");
 const { remuxFile, extOf } = require("./remux");
 const dns = require("dns").promises;
 const net = require("net");
@@ -121,7 +120,7 @@ app.post("/api/batch", async (req, res) => {
     metadata: metadata === true,
   });
   const batch = getBatch(batchId);
-  
+
   if (process.env.VERCEL) {
     try {
       await processBatch(batchId);
