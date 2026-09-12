@@ -1542,11 +1542,69 @@
     if (file) setRemuxFile(file);
   });
 
-  remuxGo.addEventListener("click", async () => {
-    if (!remuxSelected) return;
-    remuxGo.disabled = true;
-    remuxHint.textContent = "fixing!...";
+  if (!remuxGo.dataset.bound) {
+    remuxGo.dataset.bound = "1";
+    remuxGo.addEventListener("click", async () => {
+      if (!remuxSelected) return;
+      remuxGo.disabled = true;
+      remuxHint.textContent = "uploading...";
 
+      try {
+        const { upload } = await import("https://esm.sh/@vercel/blob@2.3.2/client");
+
+        const blob = await upload(remuxSelected.name, remuxSelected, {
+          access: "public",
+          handleUploadUrl: "/api/remux/upload",
+          onUploadProgress: ({ percentage }) => {
+            remuxHint.textContent = `uploading... ${percentage}%`;
+          },
+        });
+
+        remuxHint.textContent = "fixing...";
+
+        const res = await fetch("/api/remux/process", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url: blob.url, filename: remuxSelected.name }),
+        });
+        const safeRes = res.clone();
+
+        if (!safeRes.ok) {
+          let message = `remux failed (${safeRes.status})`;
+          try {
+            const data = await safeRes.json();
+            if (data.error) message = data.error;
+          } catch {
+
+          }
+          throw new Error(message);
+        }
+
+        const fileBlob = await safeRes.blob();
+        const disposition = safeRes.headers.get("content-disposition") || "";
+        const match = /filename="([^"]+)"/.exec(disposition);
+        const dot = remuxSelected.name.lastIndexOf(".");
+        const ext = dot > -1 ? remuxSelected.name.slice(dot + 1) : "bin";
+        const base = dot > -1 ? remuxSelected.name.slice(0, dot) : remuxSelected.name;
+        const outName = match ? match[1] : `${base}_toko-remux.${ext}`;
+
+        const url = URL.createObjectURL(fileBlob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = outName;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        URL.revokeObjectURL(url);
+        remuxHint.textContent = "done";
+      } catch (err) {
+        remuxHint.textContent = err.message;
+        if (state.settings.debug) console.error("[toko] remux failed", err);
+      } finally {
+        remuxGo.disabled = !remuxSelected;
+      }
+    });
+  }
     try {
       const form = new FormData();
       form.append("file", remuxSelected, remuxSelected.name);
@@ -1583,11 +1641,6 @@
       remuxHint.textContent = "done";
     } catch (err) {
       remuxHint.textContent = err.message;
-      if (state.settings.debug) console.error("[toko] remux failed", err);
-    } finally {
-      remuxGo.disabled = !remuxSelected;
-    }
-  });
 
   document.getElementById("go").addEventListener("click", submitBatch);
 
