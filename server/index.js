@@ -1,8 +1,4 @@
 const express = require("express");
-const fs = require("fs");
-const os = require("os");
-const { randomUUID } = require("crypto");
-const { remuxFile, extOf } = require("./remux");
 const dns = require("dns").promises;
 const net = require("net");
 const path = require("path");
@@ -132,90 +128,6 @@ app.post("/api/batch", async (req, res) => {
 
   res.json(batch);
   processBatch(batchId).catch(() => {});
-});
-
-app.post("/api/remux/upload", async (req, res) => {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(501).json({ error: "blob storage is not configured on this deployment, connect one in the vercel dashboard" });
-  }
-
-  try {
-    const request = new Request(`${req.protocol}://${req.get("host")}${req.originalUrl}`, {
-      method: "POST",
-      headers: new Headers(
-        Object.entries(req.headers).map(([key, value]) => [key, Array.isArray(value) ? value.join(", ") : String(value)])
-      ),
-    });
-
-    const jsonResponse = await handleUpload({
-      body: req.body,
-      request,
-      onBeforeGenerateToken: async () => ({
-        allowedContentTypes: ["video/*", "audio/*", "image/*", "application/octet-stream"],
-        addRandomSuffix: true,
-        maximumSizeInBytes: 2 * 1024 * 1024 * 1024, // 2gb
-        validUntil: Date.now() + 5 * 60 * 1000,
-      }),
-      onUploadCompleted: async () => {
-      },
-    });
-
-    res.json(jsonResponse);
-  } catch (err) {
-    res.status(400).json({ error: err.message });
-  }
-});
-
-app.post("/api/remux/process", async (req, res) => {
-  const { url, filename } = req.body || {};
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    return res.status(501).json({ error: "blob storage is not configured on this deployment" });
-  }
-  if (!url || typeof url !== "string") {
-    return res.status(400).json({ error: "blob url is required" });
-  }
-
-  let parsedUrl;
-  try {
-    parsedUrl = new URL(url);
-  } catch {
-    return res.status(400).json({ error: "invalid blob url" });
-  }
-  if (!/\.public\.blob\.vercel-storage\.com$/i.test(parsedUrl.hostname)) {
-    return res.status(400).json({ error: "url is not a vercel blob url" });
-  }
-
-  const ext = extOf(filename) || "bin";
-  const tempInputPath = path.join(os.tmpdir(), `toko-remux-in-${randomUUID()}.${ext}`);
-
-  try {
-    const upstream = await fetch(parsedUrl);
-    if (!upstream.ok || !upstream.body) {
-      return res.status(502).json({ error: `could not fetch uploaded file (${upstream.status})` });
-    }
-    await new Promise((resolve, reject) => {
-      const fileStream = fs.createWriteStream(tempInputPath);
-      Readable.fromWeb(upstream.body).pipe(fileStream);
-      fileStream.on("finish", resolve);
-      fileStream.on("error", reject);
-    });
-
-    const { outputPath, ext: outExt } = await remuxFile(tempInputPath, filename || `file.${ext}`);
-    const baseName = String(filename || "file").replace(/\.[^.]+$/, "").replace(/[^a-zA-Z0-9._-]/g, "_") || "file";
-    const safeName = `${baseName}_toko-remux.${outExt}`;
-
-    res.setHeader("Content-Type", "application/octet-stream");
-    res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
-    const readStream = fs.createReadStream(outputPath);
-    readStream.pipe(res);
-    readStream.on("close", () => fs.rm(outputPath, { force: true }, () => {}));
-    readStream.on("error", () => { if (!res.headersSent) res.status(500).end(); });
-  } catch (err) {
-    res.status(422).json({ error: `remux failed: ${err.message}` });
-  } finally {
-    fs.rm(tempInputPath, { force: true }, () => {});
-    delBlob(parsedUrl.toString()).catch(() => {});
-  }
 });
 
 app.get("/api/batch/:id", (req, res) => {

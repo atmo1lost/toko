@@ -1542,56 +1542,78 @@
     if (file) setRemuxFile(file);
   });
 
+  let ffmpegInstance = null;
+  let ffmpegLoading = null;
+
+  async function getFfmpeg() {
+    if (ffmpegInstance) return ffmpegInstance;
+    if (ffmpegLoading) return ffmpegLoading;
+
+    ffmpegLoading = (async () => {
+      const { FFmpeg } = await import("https://esm.sh/@ffmpeg/ffmpeg@0.12.10");
+      const { toBlobURL } = await import("https://esm.sh/@ffmpeg/util@0.12.1");
+
+      const ffmpeg = new FFmpeg();
+      const baseURL = "https://cdn.jsdelivr.net/npm/@ffmpeg/[email protected]/dist/esm";
+      await ffmpeg.load({
+        coreURL: await toBlobURL(`${baseURL}/ffmpeg-core.js`, "text/javascript"),
+        wasmURL: await toBlobURL(`${baseURL}/ffmpeg-core.wasm`, "application/wasm"),
+      });
+
+      ffmpegInstance = ffmpeg;
+      return ffmpeg;
+    })();
+
+    return ffmpegLoading;
+  }
+
+  const FASTSTART_EXTS = new Set(["mp4", "mov", "m4a", "m4v"]);
+
+  async function remuxLocally(file, onProgress) {
+    const ffmpeg = await getFfmpeg();
+    const dot = file.name.lastIndexOf(".");
+    const ext = (dot > -1 ? file.name.slice(dot + 1) : "mp4").toLowerCase();
+    const base = dot > -1 ? file.name.slice(0, dot) : file.name;
+    const inputName = `input.${ext}`;
+    const outputName = `output.${ext}`;
+
+    const onProgressEvent = ({ progress }) => onProgress?.(Math.min(100, Math.round(progress * 100)));
+    ffmpeg.on("progress", onProgressEvent);
+
+    try {
+      await ffmpeg.writeFile(inputName, new Uint8Array(await file.arrayBuffer()));
+
+      const args = ["-fflags", "+genpts+igndts", "-err_detect", "ignore_err", "-i", inputName, "-map", "0", "-c", "copy"];
+      if (FASTSTART_EXTS.has(ext)) args.push("-movflags", "+faststart");
+      args.push(outputName);
+
+      await ffmpeg.exec(args);
+
+      const data = await ffmpeg.readFile(outputName);
+      return { blob: new Blob([data.buffer], { type: "application/octet-stream" }), name: `${base}_toko-remux.${ext}` };
+    } finally {
+      ffmpeg.off("progress", onProgressEvent);
+      ffmpeg.deleteFile(inputName).catch(() => {});
+      ffmpeg.deleteFile(outputName).catch(() => {});
+    }
+  }
+
   if (!remuxGo.dataset.bound) {
     remuxGo.dataset.bound = "1";
     remuxGo.addEventListener("click", async () => {
       if (!remuxSelected) return;
       remuxGo.disabled = true;
-      remuxHint.textContent = "uploading...";
+      remuxHint.textContent = "loading ffmpeg... may take a while";
 
       try {
-        const { upload } = await import("https://esm.sh/@vercel/blob@2.3.2/client");
-
-        const blob = await upload(remuxSelected.name, remuxSelected, {
-          access: "public",
-          handleUploadUrl: "/api/remux/upload",
-          onUploadProgress: ({ percentage }) => {
-            remuxHint.textContent = `uploading... ${percentage}%`;
-          },
+        const { blob, name } = await remuxLocally(remuxSelected, (pct) => {
+          remuxHint.textContent = `fixing... ${pct}%`;
         });
 
-        remuxHint.textContent = "fixing...";
-
-        const res = await fetch("/api/remux/process", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ url: blob.url, filename: remuxSelected.name }),
-        });
-        const safeRes = res.clone();
-
-        if (!safeRes.ok) {
-          let message = `remux failed (${safeRes.status})`;
-          try {
-            const data = await safeRes.json();
-            if (data.error) message = data.error;
-          } catch {
-
-          }
-          throw new Error(message);
-        }
-
-        const fileBlob = await safeRes.blob();
-        const disposition = safeRes.headers.get("content-disposition") || "";
-        const match = /filename="([^"]+)"/.exec(disposition);
-        const dot = remuxSelected.name.lastIndexOf(".");
-        const ext = dot > -1 ? remuxSelected.name.slice(dot + 1) : "bin";
-        const base = dot > -1 ? remuxSelected.name.slice(0, dot) : remuxSelected.name;
-        const outName = match ? match[1] : `${base}_toko-remux.${ext}`;
-
-        const url = URL.createObjectURL(fileBlob);
+        const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = outName;
+        a.download = name;
         document.body.appendChild(a);
         a.click();
         a.remove();
@@ -1605,42 +1627,6 @@
       }
     });
   }
-    try {
-      const form = new FormData();
-      form.append("file", remuxSelected, remuxSelected.name);
-      const res = await fetch("/api/remux", { method: "POST", body: form });
-      const safeRes = res.clone(); // isolate our read from anything else touching `res`
-
-      if (!safeRes.ok) {
-        let message = `remux failed (${safeRes.status})`;
-        try {
-          const data = await safeRes.json();
-          if (data.error) message = data.error;
-        } catch {
-
-        }
-        throw new Error(message);
-      }
-
-      const blob = await safeRes.blob();
-      const disposition = safeRes.headers.get("content-disposition") || "";
-      const match = /filename="([^"]+)"/.exec(disposition);
-      const dot = remuxSelected.name.lastIndexOf(".");
-      const ext = dot > -1 ? remuxSelected.name.slice(dot + 1) : "bin";
-      const base = dot > -1 ? remuxSelected.name.slice(0, dot) : remuxSelected.name;
-      const outName = match ? match[1] : `${base}_toko-remux.${ext}`;
-
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url;
-      a.download = outName;
-      document.body.appendChild(a);
-      a.click();
-      a.remove();
-      URL.revokeObjectURL(url);
-      remuxHint.textContent = "done";
-    } catch (err) {
-      remuxHint.textContent = err.message;
 
   document.getElementById("go").addEventListener("click", submitBatch);
 
