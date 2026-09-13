@@ -2,7 +2,17 @@
 
 a simple media downloader.
 
-### discord: https://discord.gg/AGd3PgxwMA
+no ads. no tracking. just toko.
+
+### supported platforms
+
+youtube, tiktok, instagram, reddit, x, streamable and soundcloud.
+
+### discord
+
+https://discord.gg/AGd3PgxwMA
+
+come say hi, report something annoying, or suggest something stupid.
 
 ## run
 
@@ -13,9 +23,7 @@ npm start
 
 open <http://localhost:3000>.
 
-supports youtube, tiktok, instagram, reddit, X (formerly "twitter"), streamable and soundcloud.
-
-## vercel
+## vercel deployment
 
 youtube may block vercel's server ip. browser cookies do not work in a
 serverless function.
@@ -27,15 +35,26 @@ TOKO_YTDLP_COOKIES_BASE64=<your cookie export>
 TOKO_YTDLP_PROXY=<your proxy>
 ```
 
-the proxy should use the same network as the cookies. never commit cookies or
-proxy urls.
+the proxy should use the same network as the cookies.
+
+never commit cookies or proxy urls. seriously.
 
 for local browser cookies, use:
 
 ```bash
-TOKO_YTDLP_BROWSER=firefox npm start
+TOKO_YTDLP_BROWSER=chrome / firefox / brave npm start
 ```
-## for more, take a look at the **docs**
-1. [env vars](docs/env_variables.md)
+
+## docs
+
+for more, take a look at the **[docs](docs/)**.
+
+- [env vars](docs/env_variables.md)
+
+## important stuff
+
+toko is still being worked on. things will break occasionally.
+
+if something does break, tell us instead of staring at it for 20 minutes hoping it'll fix itself.
 
 <3 from atmoss.
