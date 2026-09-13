@@ -13,7 +13,7 @@ npm start
 
 open <http://localhost:3000>.
 
-supports youtube, tiktok, instagram, reddit and X (formerly "twitter").
+supports youtube, tiktok, instagram, reddit, X (formerly "twitter"), streamable and soundcloud.
 
 ## vercel
 

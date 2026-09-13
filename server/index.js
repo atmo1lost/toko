@@ -9,6 +9,7 @@ const tiktok = require("./extractors/tiktok");
 const reddit = require("./extractors/reddit")
 const x = require("./extractors/x")
 const streamable = require("./extractors/streamable")
+const soundcloud = require("./extractors/soundcloud")
 
 const app = express();
 const maxBatchItems = process.env.VERCEL ? 4 : 25;
@@ -279,6 +280,31 @@ app.get("/api/download", async (req, res) => {
       nodeStream.pipe(res);
     } catch (err) {
       res.status(502).json({ error: `streamable download failed: ${err.message}` });
+    }
+    return;
+  }
+  if (source === "soundcloud") {
+    if (!sourceUrl) {
+      return res.status(400).json({ error: "soundcloud source url is required" });
+    }
+    try {
+      const stream = await soundcloud.download(
+        sourceUrl,
+        formatId,
+        mediaType,
+        { quality: validQuality(req.query.quality), metadata: req.query.metadata === "true" }
+      );
+      const safeName = String(filename || "download.m4a").replace(/[^a-zA-Z0-9._-]/g, "_");
+      const ext = safeName.split(".").pop().toLowerCase();
+      const contentType = ext === "mp3" ? "audio/mpeg" : "audio/mp4";
+      res.setHeader("Content-Type", contentType);
+      res.setHeader("Content-Disposition", `attachment; filename="${safeName}"`);
+      const nodeStream = stream instanceof Readable ? stream : Readable.fromWeb(stream);
+      res.once("close", () => nodeStream.destroy());
+      nodeStream.on("error", (streamError) => res.destroy(streamError));
+      nodeStream.pipe(res);
+    } catch (err) {
+      res.status(502).json({ error: `soundcloud download failed: ${err.message}` });
     }
     return;
   }

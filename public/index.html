@@ -939,7 +939,7 @@
       <img class="splash-img" id="splashImg" src="" alt="" />
     </div>
 
-    <textarea style="resize: none;" id="urls" placeholder="we got insta, tiktok, youtube, x, reddit and streamable supported"></textarea>
+    <textarea style="resize: none;" id="urls" placeholder="we got insta, tiktok, youtube, x, reddit, streamable and soundcloud supported"></textarea>
     <div class="row">
       <button class="btn-primary" id="go">download em</button>
       <span class="hint" id="settingsHint"></span>
@@ -950,7 +950,7 @@
 
   <section class="view" id="view-remux">
     <h1>remux</h1>
-    <p class="lede">upload a file with playback issues (bad moov atom, wrong container framing, weird timestamps) and get a fixed copy back. same codecs, no re-encode.</p>
+    <p class="lede">upload a file with formatting issues and get a fixed copy back. same codecs, no re-encode, fully local!!!.</p>
 
     <div class="remux-drop" id="remuxDrop">
       <input type="file" id="remuxFile" hidden />
@@ -974,14 +974,6 @@
           <li>a queue manager runs up to four extractions concurrently and keeps an in-memory job store</li>
           <li>the api exposes <code>POST /api/batch</code> to submit urls and <code>GET /api/batch/:id</code> to poll status</li>
         </ul>
-        <h2>why i still like this thing</h2>
-        <p>most of this project is stubborn debugging with a UI i keep polishing so the pain feels worth it. cracking tiktok's <code>__UNIVERSAL_DATA_FOR_REHYDRATION__</code> blob felt better than it should have. finding the missing header on instagram's api after staring at a 400 for too long felt even better.</p>
-        <ul>
-          <li>streaming downloads through the server instead of buffering them, so things stop dying with oom</li>
-          <li>serializing token generation instead of letting every queued item race each other</li>
-          <li>rebuilding the sidebar and queue widget more times than the extractors, because the UI is the part i actually enjoy</li>
-        </ul>
-        <p>six sources download clean now: youtube, tiktok, instagram, x, reddit, streamable. youtube took the longest to crack, cipher decoding and token generation are not fun problems. each new extractor after that got faster to add since the pattern was already proven out.</p>
       </div>
     </section>
 
@@ -1332,6 +1324,8 @@
     return type === "video" ? "mp4" : type === "audio" ? "m4a" : "jpg";
   }
 
+  const YTDLP_SOURCES = ["youtube", "tiktok", "reddit", "x", "streamable", "soundcloud"];
+
   function downloadHref(item, f) {
     const serverType = state.settings.quality === "audio" && ["youtube", "tiktok"].includes(f.source)
       ? "audio"
@@ -1344,10 +1338,8 @@
       filename: name,
       quality: state.settings.quality,
       metadata: String(state.settings.metadata),
-      ...(f.source === "youtube"
-        ? { source: "youtube", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: serverType }
-        : f.source === "tiktok"
-        ? { source: "tiktok", sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: serverType }
+      ...(YTDLP_SOURCES.includes(f.source)
+        ? { source: f.source, sourceUrl: f.sourceUrl, formatId: f.formatId, mediaType: serverType }
         : { url: f.url }),
     });
     return `/api/download?${params}`;
