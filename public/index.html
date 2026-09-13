@@ -855,6 +855,29 @@
   }
   .remux-drop:hover, .remux-drop.drag { border-color: var(--accent); color: var(--text); }
   .remux-drop.has-file { color: var(--text); }
+
+  .paste-toast {
+    position: fixed;
+    bottom: 24px;
+    left: 50%;
+    transform: translateX(-50%) translateY(20px);
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 10px 16px;
+    font-size: 12.5px;
+    color: var(--text);
+    box-shadow: var(--shadow);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.15s ease, transform 0.15s ease;
+    z-index: 999;
+  }
+
+  .paste-toast.show {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 </style>
 </head>
 <body data-theme="dark">
@@ -1503,6 +1526,26 @@
       }
     }, 250);
   }
+  function showPasteToast(count) {
+    let toast = document.getElementById("pasteToast");
+    if (!toast) {
+      toast = document.createElement("div");
+      toast.className = "paste-toast";
+      toast.id = "pasteToast";
+      document.body.appendChild(toast);
+    }
+    toast.textContent = count === 1 ? "paste detected! · 1 url" : `paste detected! · ${count} urls`;
+    toast.classList.add("show");
+    clearTimeout(showPasteToast._t);
+    showPasteToast._t = setTimeout(() => toast.classList.remove("show"), 1800);
+  }
+
+  document.getElementById("urls").addEventListener("paste", (e) => {
+    const text = (e.clipboardData || window.clipboardData).getData("text");
+    const count = text.split(/\s+/).filter(Boolean).length;
+    if (count) showPasteToast(count);
+  });
+
   const remuxDrop = document.getElementById("remuxDrop");
   const remuxFileInput = document.getElementById("remuxFile");
   const remuxDropText = document.getElementById("remuxDropText");
