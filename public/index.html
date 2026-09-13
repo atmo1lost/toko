@@ -41,6 +41,33 @@
     --shadow: 0 16px 32px rgba(0,0,0,0.45);
   }
 
+  body[data-theme="catgirl"] {
+      --bg: url('imgs/internals/catgirls/catgirls2.jpg');
+      --bg-elev: rgba(255, 255, 255, 0.85);
+      --bg-sunken: rgba(255, 230, 240, 0.75);
+      --bg-hover: rgba(255, 204, 224, 0.9);
+      --border: #ff99c2;
+      --border-soft: #ffcce0;
+      --text: #4a2c3a;
+      --text-dim: #94687d;
+      --accent: #ff66a3;
+      --accent-soft: #ffb3d1;
+      --accent-text: #ffffff;
+      --success: #6bd69e;
+      --error: #f26d7d;
+      --queued: #a699f5;
+      --glow-1: rgba(255, 102, 163, 0.3);
+      --glow-2: rgba(255, 102, 163, 0.15);
+      --shadow: 0 16px 32px rgba(255, 153, 194, 0.35);
+      background-image: var(--bg);
+      background-size: cover;
+      background-position: center;
+      background-repeat: no-repeat;
+      background-attachment: fixed;
+      min-height: 100vh;
+      margin: 0;
+  }
+
   body[data-theme="light"] {
     --bg: #ededeb;
     --bg-elev: #ffffff;
@@ -1026,6 +1053,7 @@
         <button data-theme="light">light <- ow my eyes</button>
         <button data-theme="amoled">amoled <- cool</button>
         <button data-theme="gruvbox">gruvbox <- oranges</button>
+        <button data-theme="catgirl">ou shii <- 👀</button>
       </div>
     </div>
 
