@@ -531,6 +531,8 @@
 
   .fmt:hover { border-color: var(--accent); color: var(--accent); }
 
+  .fmt-size { margin-left: 5px; opacity: 0.7; }
+
   .item-error { margin-top: 8px; font-size: 12.5px; color: var(--error); }
 
   .debug-pre {
@@ -1364,6 +1366,29 @@
     }[c]));
   }
 
+  function formatBytes(bytes) {
+    if (!bytes || bytes <= 0) return "";
+    const units = ["B", "KB", "MB", "GB"];
+    let value = bytes;
+    let unit = 0;
+    while (value >= 1024 && unit < units.length - 1) {
+      value /= 1024;
+      unit++;
+    }
+    return `${value >= 10 || unit === 0 ? Math.round(value) : value.toFixed(1)}${units[unit]}`;
+  }
+
+  function formatEta(seconds) {
+    if (!Number.isFinite(seconds) || seconds < 0) return "…";
+    if (seconds < 1) return "<1s";
+    if (seconds < 60) return `${Math.ceil(seconds)}s`;
+    const mins = Math.floor(seconds / 60);
+    const secs = Math.ceil(seconds % 60);
+    if (mins < 60) return `${mins}m ${secs}s`;
+    const hrs = Math.floor(mins / 60);
+    return `${hrs}h ${mins % 60}m`;
+  }
+
   function renderQueueWidget() {
     const active = state.queueItems.filter(i => i.status === "queued" || i.status === "processing");
     document.getElementById("queueCount").textContent = state.queueItems.length;
@@ -1391,11 +1416,19 @@
 
   const YTDLP_SOURCES = ["youtube", "tiktok", "reddit", "x", "streamable", "soundcloud"];
 
-  function downloadHref(item, f) {
-    const serverType = state.settings.quality === "audio" && ["youtube", "tiktok"].includes(f.source)
+  function resolveServerType(f) {
+    return state.settings.quality === "audio" && ["youtube", "tiktok"].includes(f.source)
       ? "audio"
       : f.type;
-    const name = `${(item.result.title || "download").slice(0, 60)} - ${f.label}.${extFor(serverType)}`;
+  }
+
+  function buildDownloadName(item, f) {
+    return `${(item.result.title || "download").slice(0, 60)} - ${f.label}.${extFor(resolveServerType(f))}`;
+  }
+
+  function downloadHref(item, f) {
+    const serverType = resolveServerType(f);
+    const name = buildDownloadName(item, f);
     if (state.settings.localProcessing && f.url && /^https?:\/\//i.test(f.url)) {
       return f.url;
     }
@@ -1410,17 +1443,15 @@
     return `/api/download?${params}`;
   }
 
-  function downloadFormat(event) {
-    const link = event.target.closest("a[data-download]");
-    if (!link) return;
-    event.preventDefault();
-    if (link.dataset.busy) return;
+  const supportsFileSystemAccess = typeof window.showSaveFilePicker === "function";
 
+  // cross-origin direct media urls (local processing) can't be fetch()'d due
+  // to CORS, so those still go through the browser's native download.
+  function downloadViaIframe(link) {
     link.dataset.busy = "1";
-    const originalText = link.textContent;
+    const originalHtml = link.innerHTML;
     link.textContent = "downloading...";
 
-    // let the browser handle the download.
     const frame = document.createElement("iframe");
     frame.hidden = true;
     frame.src = link.href;
@@ -1429,12 +1460,100 @@
     // keep the hidden frame alive for slow downloads.
     setTimeout(() => frame.remove(), 60 * 60 * 1000);
     setTimeout(() => {
-      link.textContent = originalText;
+      link.innerHTML = originalHtml;
       link.dataset.busy = "";
     }, 1500);
   }
 
-  document.getElementById("results").addEventListener("click", downloadFormat);
+  // same-origin (proxied) downloads: stream the response ourselves so we can
+  // show live bytes/speed/eta while it comes in.
+  async function downloadWithProgress(link) {
+    link.dataset.busy = "1";
+    const originalHtml = link.innerHTML;
+    const filename = link.dataset.filename || "download";
+    const knownSize = Number(link.dataset.filesize) || 0;
+    const start = performance.now();
+    let received = 0;
+
+    const updateProgress = (total) => {
+      const elapsed = (performance.now() - start) / 1000;
+      const speed = elapsed > 0.2 ? received / elapsed : 0;
+      if (total && speed > 0) {
+        const eta = (total - received) / speed;
+        link.textContent = `${formatBytes(received)}/${formatBytes(total)} · ${formatEta(eta)} left`;
+      } else if (speed > 0) {
+        link.textContent = `${formatBytes(received)} · ${formatBytes(speed)}/s`;
+      } else {
+        link.textContent = "downloading...";
+      }
+    };
+
+    try {
+      const res = await fetch(link.href);
+      if (!res.ok || !res.body) throw new Error(`server responded ${res.status}`);
+      const total = Number(res.headers.get("content-length")) || knownSize;
+      const reader = res.body.getReader();
+
+      if (supportsFileSystemAccess) {
+        // stream straight to disk, avoids buffering large files in memory.
+        const handle = await window.showSaveFilePicker({ suggestedName: filename });
+        const writable = await handle.createWritable();
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          received += value.length;
+          updateProgress(total);
+          await writable.write(value);
+        }
+        await writable.close();
+      } else {
+        const chunks = [];
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          chunks.push(value);
+          received += value.length;
+          updateProgress(total);
+        }
+        const blob = new Blob(chunks);
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        a.remove();
+        setTimeout(() => URL.revokeObjectURL(url), 10000);
+      }
+
+      link.textContent = "done";
+    } catch (err) {
+      if (err?.name === "AbortError") {
+        // user cancelled the save picker, not a real failure.
+        link.innerHTML = originalHtml;
+      } else {
+        link.textContent = "failed";
+        if (state.settings.debug) console.error("[toko] download failed", err);
+      }
+    } finally {
+      setTimeout(() => {
+        link.innerHTML = originalHtml;
+        link.dataset.busy = "";
+      }, 1500);
+    }
+  }
+
+  document.getElementById("results").addEventListener("click", (event) => {
+    const link = event.target.closest("a[data-download]");
+    if (!link) return;
+    event.preventDefault();
+    if (link.dataset.busy) return;
+    if (link.dataset.direct) {
+      downloadViaIframe(link);
+    } else {
+      downloadWithProgress(link);
+    }
+  });
 
   function renderResults() {
     const results = document.getElementById("results");
@@ -1447,7 +1566,12 @@
         ${item.result ? `
           <div class="item-title">${escapeHtml(item.result.title || "")}</div>
           <div class="formats">
-            ${(item.result.formats || []).filter(f => f.type === "video" || f.type === "audio").slice(0, 6).map(f => `<a class="fmt" data-download data-direct-url="${escapeHtml(f.url || "")}" href="${escapeHtml(downloadHref(item, f))}" download>${escapeHtml(f.label)}</a>`).join("")}
+            ${(item.result.formats || []).filter(f => f.type === "video" || f.type === "audio").slice(0, 6).map(f => {
+              const isDirect = state.settings.localProcessing && f.url && /^https?:\/\//i.test(f.url);
+              const filename = buildDownloadName(item, f);
+              const sizeLabel = f.filesize ? `<span class="fmt-size">${f.filesizeApprox ? "~" : ""}${formatBytes(f.filesize)}</span>` : "";
+              return `<a class="fmt" data-download ${isDirect ? 'data-direct="1"' : ""} data-filename="${escapeHtml(filename)}" data-filesize="${f.filesize || ""}" href="${escapeHtml(downloadHref(item, f))}" download>${escapeHtml(f.label)}${sizeLabel}</a>`;
+            }).join("")}
           </div>
         ` : ""}
         ${item.error ? `<div class="item-error">${escapeHtml(item.error)}</div>` : ""}
@@ -1621,12 +1745,30 @@
   const remuxHint = document.getElementById("remuxHint");
   let remuxSelected = null;
 
+  // rough eta heuristic for a stream-copy remux: file size is the main
+  // driver, faststart containers need an extra moov rewrite pass, and more
+  // cores generally means the wasm build keeps up better.
+  function estimateRemuxEta(file) {
+    const ext = (file.name.split(".").pop() || "").toLowerCase();
+    const needsFaststart = FASTSTART_EXTS.has(ext);
+    // pure guess but its fine
+    const baseMBps = 90;
+    const concurrency = Math.min(4, Math.max(1, navigator.hardwareConcurrency || 2));
+    const concurrencyFactor = 0.6 + (concurrency / 4) * 0.4;
+    const faststartFactor = needsFaststart ? 0.75 : 1;
+    const effectiveMBps = baseMBps * concurrencyFactor * faststartFactor;
+    const sizeMB = file.size / (1024 * 1024);
+    return sizeMB / effectiveMBps + 2;
+  }
+
   function setRemuxFile(file) {
     remuxSelected = file || null;
     remuxDrop.classList.toggle("has-file", !!remuxSelected);
     remuxDropText.textContent = remuxSelected ? remuxSelected.name : "drop a file here or click to browse";
     remuxGo.disabled = !remuxSelected;
-    remuxHint.textContent = "";
+    remuxHint.textContent = remuxSelected
+      ? `${formatBytes(remuxSelected.size)} · ~${formatEta(estimateRemuxEta(remuxSelected))} estimated`
+      : "";
   }
 
   remuxDrop.addEventListener("click", () => remuxFileInput.click());
@@ -1732,11 +1874,19 @@
     remuxGo.addEventListener("click", async () => {
       if (!remuxSelected) return;
       remuxGo.disabled = true;
-      remuxHint.textContent = "loading ffmpeg... may take a while";
+      const initialEta = estimateRemuxEta(remuxSelected);
+      const start = performance.now();
+      remuxHint.textContent = `loading ffmpeg... ~${formatEta(initialEta)} estimated`;
 
       try {
         const { blob, name } = await remuxLocally(remuxSelected, (pct) => {
-          remuxHint.textContent = `fixing... ${pct}%`;
+          const elapsed = (performance.now() - start) / 1000;
+          if (pct > 3) {
+            const remaining = Math.max(0, elapsed / (pct / 100) - elapsed);
+            remuxHint.textContent = `fixing... ${pct}% · ${formatEta(remaining)} left`;
+          } else {
+            remuxHint.textContent = `fixing... ${pct}% · ~${formatEta(initialEta)} estimated`;
+          }
         });
 
         const url = URL.createObjectURL(blob);

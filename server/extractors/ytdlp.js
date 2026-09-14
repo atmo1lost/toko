@@ -219,6 +219,28 @@ function formatLabel(format, type) {
   return `${format.resolution || format.format_note || format.ext || "video"} ${format.ext || ""}`.trim();
 }
 
+function estimateFilesize(format, durationSeconds) {
+  if (Number.isFinite(format.filesize) && format.filesize > 0) {
+    return { bytes: format.filesize, approx: false };
+  }
+  if (Number.isFinite(format.filesize_approx) && format.filesize_approx > 0) {
+    return { bytes: format.filesize_approx, approx: true };
+  }
+  const bitrateKbps = format.tbr || format.abr || format.vbr;
+  if (Number.isFinite(bitrateKbps) && bitrateKbps > 0 && Number.isFinite(durationSeconds) && durationSeconds > 0) {
+    return { bytes: Math.round(((bitrateKbps * 1000) / 8) * durationSeconds), approx: true };
+  }
+  return { bytes: null, approx: false };
+}
+
+function withAudioEstimate(sizeInfo, format, durationSeconds) {
+  if (!sizeInfo.bytes || hasAudio(format) || !Number.isFinite(durationSeconds) || durationSeconds <= 0) {
+    return sizeInfo;
+  }
+  const audioBytes = Math.round(((128 * 1000) / 8) * durationSeconds);
+  return { bytes: sizeInfo.bytes + audioBytes, approx: true };
+}
+
 function toFormats(info, source, sourceUrl, options = {}) {
   // Only expose actual media streams. Some extractors also return thumbnails,
   // storyboards, or other entries without either an audio or video codec.
@@ -267,12 +289,16 @@ function toFormats(info, source, sourceUrl, options = {}) {
     const key = `${type}:${format.format_id}`;
     if (seen.has(key)) continue;
     seen.add(key);
+    let sizeInfo = estimateFilesize(format, info.duration);
+    if (type === "video") sizeInfo = withAudioEstimate(sizeInfo, format, info.duration);
     output.push({
       label: formatLabel(format, type),
       type,
       source,
       sourceUrl,
       formatId: String(format.format_id),
+      filesize: sizeInfo.bytes,
+      filesizeApprox: sizeInfo.approx,
       url: "",
     });
     if (output.length >= 6) break;
