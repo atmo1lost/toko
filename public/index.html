@@ -311,6 +311,57 @@
   .qs.done { background: var(--success); }
   .qs.error { background: var(--error); }
 
+  .crop-modal {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.65);
+    z-index: 1000;
+    align-items: center;
+    justify-content: center;
+  }
+  .crop-modal.show { display: flex; }
+  .crop-modal-inner {
+    background: var(--bg-elev);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+    box-shadow: var(--shadow);
+  }
+  .crop-stage {
+    position: relative;
+    display: inline-block;
+    line-height: 0;
+  }
+  .crop-stage img, .crop-stage video {
+    max-width: 80vw;
+    max-height: 70vh;
+    display: block;
+    user-select: none;
+  }
+  .crop-box {
+    position: absolute;
+    border: 2px solid var(--accent);
+    background: color-mix(in srgb, var(--accent) 12%, transparent);
+    cursor: move;
+    touch-action: none;
+  }
+  .crop-handle {
+    position: absolute;
+    width: 14px;
+    height: 14px;
+    background: var(--accent);
+    border-radius: 50%;
+    touch-action: none;
+  }
+  .crop-handle.nw { left: -7px; top: -7px; cursor: nwse-resize; }
+  .crop-handle.ne { right: -7px; top: -7px; cursor: nesw-resize; }
+  .crop-handle.sw { left: -7px; bottom: -7px; cursor: nesw-resize; }
+  .crop-handle.se { right: -7px; bottom: -7px; cursor: nwse-resize; }
+
   nav.main-nav {
     display: flex;
     flex-direction: column;
@@ -1023,6 +1074,29 @@
       <div class="remux-drop-text" id="remuxDropText">drop a file here or click to browse</div>
     </div>
 
+    <div class="row" style="flex-wrap:wrap;gap:16px;">
+      <label class="hint" style="display:flex;align-items:center;gap:6px;">
+        format
+        <select class="field-select" id="remuxFormat" style="min-width:110px;">
+          <option value="keep">keep</option>
+          <option value="mp4">mp4</option>
+          <option value="webm">webm</option>
+          <option value="mov">mov</option>
+          <option value="mkv">mkv</option>
+        </select>
+      </label>
+      <label class="hint" style="display:flex;align-items:center;gap:6px;">
+        <button class="btn-ghost" id="remuxCropBtn" type="button">set crop</button>
+        <span id="remuxCropHint">no crop</span>
+      </label>
+      <label class="hint" style="display:flex;align-items:center;gap:6px;">
+        <input type="checkbox" id="remuxCompressToggle" />
+        compress to
+        <input type="number" id="remuxCompressSize" class="text-input" style="width:64px;padding:6px 8px;" min="1" value="10" disabled />
+        mb
+      </label>
+    </div>
+
     <div class="row">
       <button class="btn-primary" id="remuxGo" disabled>fix file</button>
       <span class="hint" id="remuxHint"></span>
@@ -1179,6 +1253,7 @@
     queueItems: [],
     activeBatches: new Set(),
   };
+  state.remuxCropRect = null;
 
   function loadSettings() {
     try {
@@ -1203,6 +1278,12 @@
   }
 
   const CHANGELOG = [
+    {
+      ver: "v0.4.0",
+      date: "2026-09-14",
+      image: "https://c4.wallpaperflare.com/wallpaper/748/833/77/lucky-star-windows-xp-anime-izumi-konata-technology-windows-hd-art-wallpaper-preview.jpg",
+      text: "add remux photo cropping, file format choice, remux eta, download filesize estimate and a secret theme 👀"
+    },
     {
       ver: "v0.3.0",
       date: "2026-09-11",
@@ -1766,10 +1847,168 @@
     remuxDrop.classList.toggle("has-file", !!remuxSelected);
     remuxDropText.textContent = remuxSelected ? remuxSelected.name : "drop a file here or click to browse";
     remuxGo.disabled = !remuxSelected;
-    remuxHint.textContent = remuxSelected
-      ? `${formatBytes(remuxSelected.size)} · ~${formatEta(estimateRemuxEta(remuxSelected))} estimated`
-      : "";
+    remuxHint.textContent = "";
+    state.remuxCropRect = null;
+    document.getElementById("remuxCropHint").textContent = "no crop";
   }
+
+  const cropModal = document.getElementById("cropModal");
+  const cropStage = document.getElementById("cropStage");
+  const cropImg = document.getElementById("cropImg");
+  const cropVideo = document.getElementById("cropVideo");
+  const cropBox = document.getElementById("cropBox");
+  const remuxCropBtn = document.getElementById("remuxCropBtn");
+  const remuxCropHint = document.getElementById("remuxCropHint");
+
+  let cropMediaEl = null;
+  let cropNatural = { w: 0, h: 0 };
+  let cropObjectUrl = null;
+
+  function openCropModal(file) {
+    const isVideo = file.type.startsWith("video/");
+    cropImg.style.display = isVideo ? "none" : "block";
+    cropVideo.style.display = isVideo ? "block" : "none";
+    cropMediaEl = isVideo ? cropVideo : cropImg;
+
+    if (cropObjectUrl) URL.revokeObjectURL(cropObjectUrl);
+    cropObjectUrl = URL.createObjectURL(file);
+
+    const ready = () => {
+      cropNatural = isVideo
+        ? { w: cropVideo.videoWidth, h: cropVideo.videoHeight }
+        : { w: cropImg.naturalWidth, h: cropImg.naturalHeight };
+      requestAnimationFrame(resetCropBox);
+    };
+
+    if (isVideo) {
+      cropVideo.pause();
+      cropVideo.onloadedmetadata = ready;
+      cropVideo.src = cropObjectUrl;
+    } else {
+      cropImg.onload = ready;
+      cropImg.src = cropObjectUrl;
+    }
+
+    cropModal.classList.add("show");
+  }
+
+  function resetCropBox() {
+    const rect = cropMediaEl.getBoundingClientRect();
+    const w = rect.width * 0.8;
+    const h = rect.height * 0.8;
+    setCropBoxScreen((rect.width - w) / 2, (rect.height - h) / 2, w, h);
+  }
+
+  function setCropBoxScreen(x, y, w, h) {
+    cropBox.style.left = `${x}px`;
+    cropBox.style.top = `${y}px`;
+    cropBox.style.width = `${w}px`;
+    cropBox.style.height = `${h}px`;
+  }
+
+  function boxScreenRect() {
+    return {
+      x: parseFloat(cropBox.style.left) || 0,
+      y: parseFloat(cropBox.style.top) || 0,
+      w: parseFloat(cropBox.style.width) || 0,
+      h: parseFloat(cropBox.style.height) || 0,
+    };
+  }
+
+  let dragMode = null;
+  let dragStart = null;
+
+  function startDrag(mode) {
+    return (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      dragMode = mode;
+      dragStart = { pointerX: e.clientX, pointerY: e.clientY, box: boxScreenRect() };
+      document.addEventListener("pointermove", onDrag);
+      document.addEventListener("pointerup", stopDrag);
+    };
+  }
+
+  function onDrag(e) {
+    if (!dragMode) return;
+    const bounds = cropMediaEl.getBoundingClientRect();
+    const dx = e.clientX - dragStart.pointerX;
+    const dy = e.clientY - dragStart.pointerY;
+    let { x, y, w, h } = dragStart.box;
+
+    if (dragMode === "move") {
+      x = dragStart.box.x + dx;
+      y = dragStart.box.y + dy;
+    } else {
+      if (dragMode.includes("e")) w = dragStart.box.w + dx;
+      if (dragMode.includes("s")) h = dragStart.box.h + dy;
+      if (dragMode.includes("w")) { x = dragStart.box.x + dx; w = dragStart.box.w - dx; }
+      if (dragMode.includes("n")) { y = dragStart.box.y + dy; h = dragStart.box.h - dy; }
+    }
+
+    w = Math.max(20, w);
+    h = Math.max(20, h);
+    x = Math.min(Math.max(0, x), bounds.width - w);
+    y = Math.min(Math.max(0, y), bounds.height - h);
+    w = Math.min(w, bounds.width - x);
+    h = Math.min(h, bounds.height - y);
+
+    setCropBoxScreen(x, y, w, h);
+  }
+
+  function stopDrag() {
+    dragMode = null;
+    document.removeEventListener("pointermove", onDrag);
+    document.removeEventListener("pointerup", stopDrag);
+  }
+
+  cropBox.addEventListener("pointerdown", (e) => {
+    if (e.target.classList.contains("crop-handle")) return;
+    startDrag("move")(e);
+  });
+  cropBox.querySelector(".nw").addEventListener("pointerdown", startDrag("nw"));
+  cropBox.querySelector(".ne").addEventListener("pointerdown", startDrag("ne"));
+  cropBox.querySelector(".sw").addEventListener("pointerdown", startDrag("sw"));
+  cropBox.querySelector(".se").addEventListener("pointerdown", startDrag("se"));
+
+  remuxCropBtn.addEventListener("click", () => {
+    if (!remuxSelected) return;
+    openCropModal(remuxSelected);
+  });
+
+  document.getElementById("cropCancel").addEventListener("click", () => {
+    cropModal.classList.remove("show");
+    cropVideo.pause();
+  });
+
+  document.getElementById("cropConfirm").addEventListener("click", () => {
+    const rect = boxScreenRect();
+    const mediaRect = cropMediaEl.getBoundingClientRect();
+    const scaleX = cropNatural.w / mediaRect.width;
+    const scaleY = cropNatural.h / mediaRect.height;
+
+    let x = Math.round(rect.x * scaleX);
+    let y = Math.round(rect.y * scaleY);
+    let w = Math.round(rect.w * scaleX);
+    let h = Math.round(rect.h * scaleY);
+
+    w -= w % 2;
+    h -= h % 2;
+    x -= x % 2;
+    y -= y % 2;
+
+    state.remuxCropRect = { x, y, w, h };
+    remuxCropHint.textContent = `crop: ${w}x${h}`;
+
+    cropModal.classList.remove("show");
+    cropVideo.pause();
+  });
+
+  const remuxCompressToggle = document.getElementById("remuxCompressToggle");
+  const remuxCompressSize = document.getElementById("remuxCompressSize");
+  remuxCompressToggle.addEventListener("change", () => {
+    remuxCompressSize.disabled = !remuxCompressToggle.checked;
+  });
 
   remuxDrop.addEventListener("click", () => remuxFileInput.click());
   remuxFileInput.addEventListener("change", () => setRemuxFile(remuxFileInput.files[0]));
@@ -1840,13 +2079,34 @@
 
   const FASTSTART_EXTS = new Set(["mp4", "mov", "m4a", "m4v"]);
 
-  async function remuxLocally(file, onProgress) {
+  async function probeDuration(ffmpeg, inputName) {
+    let log = "";
+    const handler = ({ message }) => { log += message + "\n"; };
+    ffmpeg.on("log", handler);
+    try {
+      await ffmpeg.exec(["-i", inputName]);
+    } catch {
+
+    }
+    ffmpeg.off("log", handler);
+    const match = log.match(/Duration:\s*(\d+):(\d+):(\d+\.\d+)/);
+    return match ? (+match[1]) * 3600 + (+match[2]) * 60 + parseFloat(match[3]) : null;
+  }
+
+  function cropFilter(rect) {
+    if (!rect) return null;
+    return `crop=${rect.w}:${rect.h}:${rect.x}:${rect.y}`;
+  }
+
+  async function processLocally(file, options, onProgress) {
     const ffmpeg = await getFfmpeg();
     const dot = file.name.lastIndexOf(".");
-    const ext = (dot > -1 ? file.name.slice(dot + 1) : "mp4").toLowerCase();
+    const originalExt = (dot > -1 ? file.name.slice(dot + 1) : "mp4").toLowerCase();
     const base = dot > -1 ? file.name.slice(0, dot) : file.name;
-    const inputName = `input.${ext}`;
+    const ext = options.format && options.format !== "keep" ? options.format : originalExt;
+    const inputName = `input.${originalExt}`;
     const outputName = `output.${ext}`;
+    const advanced = (options.format && options.format !== "keep") || options.cropRect !== "none" || !!options.compressTargetMB;
 
     const onProgressEvent = ({ progress }) => onProgress?.(Math.min(100, Math.round(progress * 100)));
     ffmpeg.on("progress", onProgressEvent);
@@ -1854,14 +2114,44 @@
     try {
       await ffmpeg.writeFile(inputName, new Uint8Array(await file.arrayBuffer()));
 
-      const args = ["-fflags", "+genpts+igndts", "-err_detect", "ignore_err", "-i", inputName, "-map", "0", "-c", "copy"];
-      if (FASTSTART_EXTS.has(ext)) args.push("-movflags", "+faststart");
-      args.push(outputName);
+      let args;
+      if (!advanced) {
+        args = ["-fflags", "+genpts+igndts", "-err_detect", "ignore_err", "-i", inputName, "-map", "0", "-c", "copy"];
+        if (FASTSTART_EXTS.has(ext)) args.push("-movflags", "+faststart");
+        args.push(outputName);
+      } else {
+        const isWebm = ext === "webm";
+        args = ["-i", inputName];
+
+        const filter = cropFilter(options.cropRect);
+        if (filter) args.push("-vf", filter);
+
+        args.push("-c:v", isWebm ? "libvpx-vp9" : "libx264");
+        if (!isWebm) args.push("-pix_fmt", "yuv420p");
+        args.push("-c:a", isWebm ? "libopus" : "aac");
+
+        if (options.compressTargetMB) {
+          const duration = await probeDuration(ffmpeg, inputName);
+          if (!duration) throw new Error("could not read duration to hit a target size");
+          const audioBitrate = 128000;
+          const targetBits = options.compressTargetMB * 1024 * 1024 * 8;
+          const videoBitrate = Math.max(100000, Math.floor(targetBits / duration - audioBitrate));
+          args.push("-b:v", `${videoBitrate}`, "-maxrate", `${videoBitrate}`, "-bufsize", `${videoBitrate * 2}`, "-b:a", "128k");
+        } else {
+          args.push("-crf", isWebm ? "32" : "23", "-b:a", "192k");
+          if (isWebm) args.push("-b:v", "0");
+          if (!isWebm) args.push("-preset", "veryfast");
+        }
+
+        if (FASTSTART_EXTS.has(ext)) args.push("-movflags", "+faststart");
+        args.push(outputName);
+      }
 
       await ffmpeg.exec(args);
 
       const data = await ffmpeg.readFile(outputName);
-      return { blob: new Blob([data.buffer], { type: "application/octet-stream" }), name: `${base}_toko-remux.${ext}` };
+      const suffix = advanced ? "toko-edit" : "toko-remux";
+      return { blob: new Blob([data.buffer], { type: "application/octet-stream" }), name: `${base}_${suffix}.${ext}` };
     } finally {
       ffmpeg.off("progress", onProgressEvent);
       ffmpeg.deleteFile(inputName).catch(() => {});
@@ -1874,19 +2164,17 @@
     remuxGo.addEventListener("click", async () => {
       if (!remuxSelected) return;
       remuxGo.disabled = true;
-      const initialEta = estimateRemuxEta(remuxSelected);
-      const start = performance.now();
-      remuxHint.textContent = `loading ffmpeg... ~${formatEta(initialEta)} estimated`;
+      remuxHint.textContent = "loading ffmpeg... may take a while";
+
+      const options = {
+        format: document.getElementById("remuxFormat").value,
+        cropRect: state.remuxCropRect,
+        compressTargetMB: remuxCompressToggle.checked ? Number(remuxCompressSize.value) || null : null,
+      };
 
       try {
-        const { blob, name } = await remuxLocally(remuxSelected, (pct) => {
-          const elapsed = (performance.now() - start) / 1000;
-          if (pct > 3) {
-            const remaining = Math.max(0, elapsed / (pct / 100) - elapsed);
-            remuxHint.textContent = `fixing... ${pct}% · ${formatEta(remaining)} left`;
-          } else {
-            remuxHint.textContent = `fixing... ${pct}% · ~${formatEta(initialEta)} estimated`;
-          }
+        const { blob, name } = await processLocally(remuxSelected, options, (pct) => {
+          remuxHint.textContent = `processing... ${pct}%`;
         });
 
         const url = URL.createObjectURL(blob);
@@ -1918,5 +2206,23 @@
 
 })();
 </script>
+<div class="crop-modal" id="cropModal">
+  <div class="crop-modal-inner">
+    <div class="crop-stage" id="cropStage">
+      <img id="cropImg" style="display:none;" />
+      <video id="cropVideo" style="display:none;" muted playsinline controls></video>
+      <div class="crop-box" id="cropBox">
+        <div class="crop-handle nw"></div>
+        <div class="crop-handle ne"></div>
+        <div class="crop-handle sw"></div>
+        <div class="crop-handle se"></div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn-ghost" id="cropCancel">cancel</button>
+      <button class="btn-primary" id="cropConfirm">use crop</button>
+    </div>
+  </div>
+</div>
 </body>
 </html>
