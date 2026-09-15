@@ -1236,7 +1236,24 @@
   </section>
 
 </main>
-
+<div class="crop-modal" id="cropModal">
+  <div class="crop-modal-inner">
+    <div class="crop-stage" id="cropStage">
+      <img id="cropImg" style="display:none;" />
+      <video id="cropVideo" style="display:none;" muted playsinline controls></video>
+      <div class="crop-box" id="cropBox">
+        <div class="crop-handle nw"></div>
+        <div class="crop-handle ne"></div>
+        <div class="crop-handle sw"></div>
+        <div class="crop-handle se"></div>
+      </div>
+    </div>
+    <div class="row" style="justify-content:flex-end;">
+      <button class="btn-ghost" id="cropCancel">cancel</button>
+      <button class="btn-primary" id="cropConfirm">use crop</button>
+    </div>
+  </div>
+</div>
 <script>
 (() => {
   const DEFAULT_SETTINGS = {
@@ -2206,23 +2223,5 @@
 
 })();
 </script>
-<div class="crop-modal" id="cropModal">
-  <div class="crop-modal-inner">
-    <div class="crop-stage" id="cropStage">
-      <img id="cropImg" style="display:none;" />
-      <video id="cropVideo" style="display:none;" muted playsinline controls></video>
-      <div class="crop-box" id="cropBox">
-        <div class="crop-handle nw"></div>
-        <div class="crop-handle ne"></div>
-        <div class="crop-handle sw"></div>
-        <div class="crop-handle se"></div>
-      </div>
-    </div>
-    <div class="row" style="justify-content:flex-end;">
-      <button class="btn-ghost" id="cropCancel">cancel</button>
-      <button class="btn-primary" id="cropConfirm">use crop</button>
-    </div>
-  </div>
-</div>
 </body>
 </html>
